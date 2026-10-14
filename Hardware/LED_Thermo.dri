@@ -1,0 +1,37 @@
+Drill Station Info File: H:/eagle_V4/eagle_kingston/LED_Thermometer/LED_Thermo.dri
+
+ Date              : 02.07.2018 20:48:38 
+ Drills            : generated
+ Device            : Excellon drill station
+
+Parameter settings:
+
+ Tolerance Drill + :  2.50 %
+ Tolerance Drill - :  2.50 %
+ Rotate            : no
+ Mirror            : no
+ Optimize          : yes
+ Auto fit          : yes
+ OffsetX           : 0inch
+ OffsetY           : 0inch
+ Layers            : Drills Holes
+
+Drill File Info:
+
+ Data Mode         : Absolute
+ Units             : 1/10000 Inch
+
+Drills used:
+
+ Code  Size       used
+
+ T01   0.0236inch    19
+ T02   0.0320inch    38
+ T03   0.0400inch     8
+ T04   0.0440inch     2
+
+Total number of drills: 67
+
+Plotfiles:
+
+ H:/eagle_V4/eagle_kingston/LED_Thermometer/LED_Thermo.txt

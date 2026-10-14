@@ -1,0 +1,52 @@
+Stückliste exportiert aus H:/eagle_V4/eagle_kingston/LED_Thermometer/LED_Thermo.sch am 04.07.2018 20:26:42 
+
+Bauteil Wert                   Device                 Package    Description                         
+C1      10µF                   CPOL-EUSMCD            SMC_D      POLARIZED CAPACITOR, European symbol
+C2      100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+C3      100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+C4      22µF                   C-EUC0805              C0805      CAPACITOR, European symbol          
+C5      22µF                   C-EUC0805              C0805      CAPACITOR, European symbol          
+C6      75pF                   C-EUC0805              C0805      CAPACITOR, European symbol          
+C7      100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+C8      100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+C9      100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+C12     100nF                  C-EUC0805              C0805      CAPACITOR, European symbol          
+IC1     MEGA48/88/168-AU       MEGA48/88/168-AU       TQFP32-08                                      
+IC2     MAX481CSA              MAX481CSA              SO08       RS485 TRANSEIVER                    
+IC3     TPS54308               TPS54308               SOT23-6L                                       
+JP1     AVR-ISP-6              AVR-ISP-6              AVR-ISP-6  AVR ISP-6 Serial Programming Header 
+L1      L-242408_15µH          L-242408_FPS           FPS_SOCKED                                     
+LED1                           LED3MM                 LED3MM     LED                                 
+LED2                           LED3MM                 LED3MM     LED                                 
+LED3                           LED3MM                 LED3MM     LED                                 
+LED4                           LED3MM                 LED3MM     LED                                 
+LED5                           LED3MM                 LED3MM     LED                                 
+LED6                           LED3MM                 LED3MM     LED                                 
+LED7                           LED3MM                 LED3MM     LED                                 
+LED8                           LED3MM                 LED3MM     LED                                 
+LED9                           LED3MM                 LED3MM     LED                                 
+LED10                          LED3MM                 LED3MM     LED                                 
+LED11                          LED3MM                 LED3MM     LED                                 
+LED12                          LED3MM                 LED3MM     LED                                 
+LED13                          LED3MM                 LED3MM     LED                                 
+LED14                          LED3MM                 LED3MM     LED                                 
+LED15                          LED3MM                 LED3MM     LED                                 
+LED16                          LED3MM                 LED3MM     LED                                 
+LED17                          LED3MM                 LED3MM     LED                                 
+LED18                          LED3MM                 LED3MM     LED                                 
+LED19                          LED3MM                 LED3MM     LED                                 
+PAD+    12V+                   2,54/1,1               2,54/1,1   THROUGH-HOLE PAD                    
+PAD_A                          2,54/1,0               2,54/1,0   THROUGH-HOLE PAD                    
+PAD_B                          2,54/1,0               2,54/1,0   THROUGH-HOLE PAD                    
+PAD_GND                        2,54/1,1               2,54/1,1   THROUGH-HOLE PAD                    
+Q2      KERAMIKRESONATOR_CSTCC KERAMIKRESONATOR_CSTCC CSTCC                                          
+R1      49.9                   R-EU_M0805             M0805      RESISTOR, European symbol           
+R2      100k                   R-EU_M0805             M0805      RESISTOR, European symbol           
+R3      13.3k                  R-EU_M0805             M0805      RESISTOR, European symbol           
+R4      berechnen              R-EU_M0805             M0805      RESISTOR, European symbol           
+R5      berechnen              R-EU_M0805             M0805      RESISTOR, European symbol           
+R6      2k                     R-EU_M0805             M0805      RESISTOR, European symbol           
+R7      220                    R-EU_M0805             M0805      RESISTOR, European symbol           
+R8      220                    R-EU_M0805             M0805      RESISTOR, European symbol           
+R9      220                    R-EU_M0805             M0805      RESISTOR, European symbol           
+R10     220                    R-EU_M0805             M0805      RESISTOR, European symbol           

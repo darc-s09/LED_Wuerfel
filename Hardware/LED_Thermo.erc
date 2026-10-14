@@ -1,0 +1,15 @@
+EAGLE Version 4.16r2 Copyright (c) 1988-2006 CadSoft
+
+Electrical Rule Check für H:/eagle_V4/eagle_kingston/LED_Thermometer/LED_Thermo.sch am 01.07.2018 21:43:46 
+
+WARNUNG: Seite 1/1: POWER-Pin IC1 AGND verbunden mit GND
+WARNUNG: Seite 1/1: POWER-Pin IC3 P$1 verbunden mit GND
+WARNUNG: Seite 1/1: POWER-Pin IC3 P$2 verbunden mit N$1
+WARNUNG: Seite 1/1: POWER-Pin IC3 P$3 verbunden mit PAD_12V
+WARNUNG: Seite 1/1: POWER-Pin IC3 P$4 verbunden mit N$7
+WARNUNG: Seite 1/1: POWER-Pin IC3 P$6 verbunden mit N$3
+
+Board und Schaltplan sind konsistent
+
+    0 Fehler
+    6 Warnungen

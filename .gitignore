@@ -22,6 +22,16 @@
 *.la
 *.lo
 
+#Hardware Eagle
+*s#*
+*b#*
+2018*
+
+#Software
+DEBUG/
+UART-Debug/
+Thermometer.cproj
+
 # Shared objects (inc. Windows DLLs)
 *.dll
 *.so
