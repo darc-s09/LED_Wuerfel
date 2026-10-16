@@ -10,11 +10,11 @@
 /* $Id: 1wire.c 99 2019-12-02 23:21:02Z dl8dtl $ */
 
 #include <stdint.h>
-#include <stdio.h>
 #include <stdbool.h>
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <avr/pgmspace.h>
 
 #include "thermo.h"
 
@@ -162,14 +162,17 @@ ow_checkcrc(uint8_t *data, uint8_t nbytes)
   return crc; // must be 0
 }
 
-double
-Read_Temperature(double divisor)
+/*
+ * Temperaturmessung ohne Warteschleife:
+ * ow_messung_starten() startet die Wandlung und schaltet den Strong Pullup ein,
+ * ow_messung_lesen() wird nach der Wandlungszeit aufgerufen (DS18B20 9 Bit:
+ * 94 ms, DS1820: 750 ms) und liefert die Temperatur in 1/16 Grad C.
+ */
+bool
+ow_messung_starten(void)
 {
-  uint8_t get[9];
-  unsigned temp_lsb,temp_msb;
-  uint8_t k;
-
-  ow_reset();
+  if (!ow_reset())
+    return false;
 
   ow_write_byte(0xCC); // Skip ROM
   cli();
@@ -179,10 +182,19 @@ Read_Temperature(double divisor)
   // Conversion" => F_CPU = 8 MHz recommendable
   strong_pullup(true);
   sei();
-  _delay_ms(100);
-  strong_pullup(false);
 
-  ow_reset();
+  return true;
+}
+
+bool
+ow_messung_lesen(uint8_t familie, int16_t *t16)
+{
+  uint8_t get[9];
+  uint8_t k;
+
+  strong_pullup(false);
+  if (!ow_reset())
+    return false;
 
   ow_write_byte(0xCC); // Skip ROM
   ow_write_byte(0xBE); // Read Scratch Pad
@@ -190,15 +202,19 @@ Read_Temperature(double divisor)
   for (k = 0; k < 9; k++){
     get[k] = ow_read_byte();
   }
-  k = ow_checkcrc(get, 9);
-  if (k != 0)
-    return 0;
+  // Byte 7 ist bei DS18B20 und DS1820 immer 0x10; faengt eine dauerhaft
+  // auf Low liegende Leitung ab (lauter Nullen haetten ebenfalls CRC 0)
+  if (ow_checkcrc(get, 9) != 0 || get[7] != 0x10)
+    return false;
 
-  temp_msb = get[1]; // Sign byte + lsbit
-  temp_lsb = get[0]; // Temp data plus lsb
-  int i = (temp_msb << 8) | temp_lsb;
+  int16_t roh = (int16_t)((get[1] << 8) | get[0]);
+  if (familie == DS18B20)
+    roh &= ~7;   // 9 Bit Aufloesung: untere Bits undefiniert
+  else
+    roh *= 8;    // DS1820: 1/2 Grad -> 1/16 Grad
+  *t16 = roh;
 
-  return ((double)i / divisor);
+  return true;
 }
 
 bool
@@ -211,22 +227,18 @@ Get_ROMCode(uint8_t *dat)
   ow_write_byte(0x33);
 
 #if UART_DEBUG
-  putstring("ROM Code: ");
+  rs485_puts_P(PSTR("ROM Code: "));
 #endif
   for (n = 0; n < 8; n++) {
     dat[n] = ow_read_byte();
 #if UART_DEBUG
-    char b[10];
-    sprintf(b, "0x%02x ", dat[n]);
-    putstring(b);
+    rs485_hex(dat[n]);
+    rs485_putc(' ');
 #endif
   }
   n = ow_checkcrc(dat, 8);
 #if UART_DEBUG
-  if (n)
-    putstring("CRC fail\r\n");
-  else
-    putstring("CRC OK\r\n");
+  rs485_puts_P(n ? PSTR("CRC fail\r\n") : PSTR("CRC OK\r\n"));
 #endif
   return n == 0;
 }

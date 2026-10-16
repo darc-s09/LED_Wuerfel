@@ -10,1216 +10,464 @@
   Created: 01.11.2019 14:00:00
   Author:  Uwe Liedtke und Joerg Wunsch
   Projekt: Temperaturanzeige und Wuerfel
-  Funktionen:
-  Temperaturanzeige
-  Wuerfel mit 6 und 7 Ziffern
-  Zweispielermode 20 Gewinnt
+  Funktionen (Auswahl per Jumper beim Einschalten, siehe thermo.h):
+  1. Temperaturanzeige (DS18B20/DS1820 an JP2 oder interner Sensor), Ausgabe auch ueber RS485
+  2. Wuerfel mit 6 oder 7 Augen
+  3. Zweispielermode "20 gewinnt" mit einem Wuerfel
+  4. Zweispielermode "20 gewinnt" mit zwei Wuerfeln ueber RS485
 
-  fuer Atmega 168A
+  fuer Atmega 48A/88A/168A, 12 MHz
+
+  Zeitablauf:
+  Timer 0  LED-Multiplexer (led.c)
+  Timer 1  frei laufend mit 12 MHz, Zufallsquelle fuer den Wuerfel
+  Timer 2  Tick alle 10 ms, steuert die Hauptschleife
  */
-
 
 #include "thermo.h"
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <avr/eeprom.h>
-#include <avr/io.h>
-#include <util/delay.h>
 #include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+#include <avr/sleep.h>
+#include <util/delay.h>
 
-volatile uint8_t counter;                 // Counter fuer Taskmanager
-volatile uint8_t drehcounter;             // Zahlt die Anzahl der Umlaeufe bevor der Wuerfel faellt
-volatile uint8_t drehaktiv;               // Hier wird die Anzahl der Umlaeufe festgelegt
-volatile uint8_t ztemp;                   // Hier steht die Zufahlszahl vom aktuellen Wuerfelumlauf drin
-volatile uint16_t wzeiger;                // Counter fuer den drehenden Wuerfel
-volatile uint8_t player1;                 // Spielstand Player 1
-volatile uint8_t player2;                 // Spielstand Player 2
-volatile uint8_t mode;                    // wuerfel funktion
-volatile uint16_t temperaturdaten;
-double temp_1wire;
+#define MESS_TAKT       500            // Temperaturmessung alle 5 s (Ticks)
+#define MESS_TAKT_KALIB 50             // im Kalibriermodus alle 0,5 s
 
-uint8_t debug;                            // debug Variable
-uint8_t zufall;                           // Variable fuer Zufallsgenerator
-uint8_t taskcount;                        // Counter fuer Multiplexer
-uint8_t SW_FLAGS;                         // Flags, Verwendung siehe Flags declaration
-uint8_t FLAGS;                            // Flags, Verwendung siehe Flags declaration
-uint8_t LED_TASK[20][2];                  // Array LED Ansteuerung [0 = AN/AUS oder Timer
-uint8_t LED_Timer;                        // Multiplexer
-uint8_t LED_HELLIGKEIT;                   // Helligkeit , PWM
-
-uint8_t romcode[8];                       // ROM code of 1wire device
-
-uint16_t temp_offset = 290;               // Temperatur-Offset in mV
-
-
-double temp_ds18b20(void)
-{
-    double tfloat = Read_Temperature(romcode[0] == DS18B20? 16.0: 2.0);
-
-    return tfloat;
-}
-
-double temp_internal(void)
-{
-    const double digits_per_millivolt = 1024 /* 10 digits */ / 1100.0 /* Vref */;
-    // der Offset sollte justierbar werden
-    uint16_t offset = temp_offset /* mV */ / digits_per_millivolt;
-    double t = temperaturdaten;
-
-    return t / digits_per_millivolt - offset;
-}
-
-// Abfrage Potenziometer an JP2
-uint8_t ADC_read_ADC2(void)
-{
-    ADC_init(false);
-
-    ADCSRA |= _BV(ADSC);
-    _delay_ms(2);
-    uint8_t res = ADCH;
-
-    ADCSRA = 0;
-
-    ADC_init(true);
-
-    return res;
-}
-
-
-
-int main(void)
-{
-    LED_HELLIGKEIT = 15;
-    drehcounter = 0;
-    PORTs_init();                       // Init der Ein und Ausgabeports
-    ow_power(true);
-#if UART_DEBUG == 1
-    UART_init();                        // INIT 485
+#if F_CPU < 10000000
+#   define ADC_VORTEILER (_BV(ADPS2) | _BV(ADPS0))  // 32 => 115 kHz bei 3,68 MHz
+#else
+#   define ADC_VORTEILER (_BV(ADPS2) | _BV(ADPS1))  // 64 => 187 kHz bei 12 MHz
 #endif
-    sei();                              // INTERRUPTS GLOBAL AN
-    LED_TASK[1][0]=1;                   // LED 1 AN nach INIT
 
+uint8_t betriebsart;
+volatile uint16_t ticks;
+static volatile bool tick_neu;
+
+// Temperaturanzeige
+static bool     sensor_extern;          // DS18B20 / DS1820 an JP2 gefunden
+static bool     kalibrierung;           // Kalibriermodus interner Sensor (Poti an JP2)
+static uint8_t  romcode[8];             // ROM code of 1wire device
+static uint16_t temp_offset = 290;      // Temperatur-Offset, Kalibrierwert
+static uint16_t mess_warte;             // Ticks bis zur naechsten Messung
+static uint8_t  ow_warte;               // Ticks bis die 1-Wire-Wandlung fertig ist
+
+#if UART_DEBUG
+static bool taste_simuliert;
+#endif
+
+/***************************************************************************************
+INIT der Ein und Ausgabeports
+***************************************************************************************/
+static void ports_init(void)
+{
+/* PORTB
+PB0..PB2 = Kathoden LED-Zeilen, werden vom Multiplexer ueber DDRB geschaltet
+PB3..PB5 = MOSI/MISO/SCK, Jumper Konfig (Pullups nur waehrend der Abfrage)
+PB6, PB7 = Quarz */
+    DDRB  = 0;
+    PORTB = 0;
+
+/* PORTC
+PC0, PC1 = USB D-/D+
+PC2 = 1-Wire DATA (4,7k nach PC3) / ADC2 Poti fuer Kalibrierung
+PC3 = 1-Wire Power
+PC4 = Taster Start Wuerfel, Eingang mit internem Pullup
+PC5 = RX/TX Umschaltung fuer RS485 HI=TX LOW=RX */
+    DDRC  = _BV(PC5);
+    PORTC = _BV(PC4);
+
+/* PORTD
+PD0, PD1 = RXD/TXD (485), Pullup an RXD solange der Empfaenger aus ist
+PD2..PD6 = Anoden LED-Spalten, PD7 = Kathode LED 16..19 (ueber DDRD) */
+    DDRD  = ANODEN;
+    PORTD = _BV(PD0);
+}
+
+/******************************************************************************
+TIMER INIT
+Timer 1: frei laufend ohne Vorteiler (Zufallsquelle)
+Timer 2: CTC, Vorteiler 1024, Tick alle 10 ms
+Taster:  Pin-Change-Interrupt (Zufallsquelle, siehe spiel.c)
+******************************************************************************/
+static void timer_init(void)
+{
+    TCCR1B = _BV(CS10);
+
+    TCCR2A = _BV(WGM21);
+    OCR2A  = (F_CPU / 1024 * TICK_MS + 500) / 1000 - 1;
+    TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
+    TIMSK2 = _BV(OCIE2A);
+
+    PCMSK1 = _BV(PCINT12);
+    PCICR  = _BV(PCIE1);
+}
+
+/***************************************************************************************
+Abfrage der Jumper am ISP-Stecker
+  kein Jumper            Temperaturanzeige
+  4-6 (MOSI - GND)       Wuerfel 1 - 6
+  3-4 (SCK  - MOSI)      Wuerfel 1 - 7
+  1-3 (MISO - SCK)       Zweispieler mit einem Wuerfel
+  4-6 und 1-3            Zweispieler mit zwei Wuerfeln ueber RS485
+***************************************************************************************/
+static uint8_t jumper_lesen(void)
+{
+    JMP_PORT |= _BV(JMP_MOSI) | _BV(JMP_MISO);      // Pullups an
+    _delay_us(10);
+    bool mosi_gnd = !(JMP_PIN & _BV(JMP_MOSI));
+
+    JMP_DDR |= _BV(JMP_SCK);                        // SCK aktiv low
+    _delay_us(10);
+    bool sck_miso = !(JMP_PIN & _BV(JMP_MISO));
+    bool sck_mosi = !mosi_gnd && !(JMP_PIN & _BV(JMP_MOSI));
+
+    JMP_DDR  &= ~_BV(JMP_SCK);
+    JMP_PORT &= ~(_BV(JMP_MOSI) | _BV(JMP_MISO));
+
+    if (mosi_gnd)
+        return sck_miso ? BA_RS485_SPIEL : BA_WUERFEL_6;
+    if (sck_mosi)
+        return BA_WUERFEL_7;
+    if (sck_miso)
+        return BA_ZWEISPIELER;
+    return BA_TEMPERATUR;
+}
+
+/******************************************************************************
+Taster entprellen (Aufruf jeden Tick): true beim Druecken
+******************************************************************************/
+static bool taste_abfragen(void)
+{
+    static uint8_t verlauf;
+    static bool gedrueckt;
+
+    verlauf = (verlauf << 1) | !qbi(SW_WUERFEL, SW_PORT);
+    if ((verlauf & 0x07) == 0x07)
+    {
+        if (!gedrueckt)
+        {
+            gedrueckt = true;
+            return true;
+        }
+    }
+    else if ((verlauf & 0x07) == 0)
+    {
+        gedrueckt = false;
+    }
+#if UART_DEBUG
+    if (taste_simuliert)
+    {
+        taste_simuliert = false;
+        return true;
+    }
+#endif
+    return false;
+}
+
+/******************************************************************************
+AD-Wandler
+Normal: interne Referenz 1,1 V, Kanal 8 (interner Temperatursensor)
+Kalibrierung: kurz auf AVcc und ADC2 (Poti an JP2) umschalten
+******************************************************************************/
+static void adc_temp_init(void)
+{
+    ADMUX  = _BV(REFS1) | _BV(REFS0) | _BV(MUX3);
+    ADCSRA = _BV(ADEN) | ADC_VORTEILER;
+}
+
+static uint16_t adc_wandeln(void)
+{
+    ADCSRA |= _BV(ADSC);
+    while (ADCSRA & _BV(ADSC))
+        ;
+    return ADC;
+}
+
+static uint8_t adc2_lesen(void)
+{
+    ADMUX  = _BV(REFS0) | _BV(ADLAR) | 2;   // AVcc, ADC2, nur 8 Bit
+    ADCSRA = _BV(ADEN) | ADC_VORTEILER;
+    adc_wandeln();                          // erste Wandlung verwerfen
+    uint8_t wert = adc_wandeln() >> 8;
+    adc_temp_init();
+    return wert;
+}
+
+/******************************************************************************
+Interner Sensor, Mittelwert aus 8 Wandlungen, Ergebnis in 1/16 Grad C
+Formel wie bisher: t = adc * 1100/1024 - temp_offset * 1100/1024,
+damit bleiben vorhandene Kalibrierwerte im EEPROM gueltig.
+******************************************************************************/
+static int16_t temp_intern(void)
+{
+    uint16_t summe = 0;
+
+    adc_wandeln();                          // erste Wandlung verwerfen
+    for (uint8_t i = 0; i < 8; i++)
+        summe += adc_wandeln();
+
+    int16_t offset = (uint32_t)temp_offset * 1100 / 1024;
+    // summe/8 * 1100/1024 * 16 = summe * 275 / 128
+    return (int16_t)((uint32_t)summe * 275 / 128) - offset * 16;
+}
+
+/******************************************************************************
+Temperatur auf dem LED Band (eine LED je TEMP_SCHRITT Grad) und ueber RS485
+Ausgabe: "T=23.5 ext" bzw. "T=23.5 int"
+******************************************************************************/
+static void temperatur_anzeigen(int16_t t16)
+{
+    // auf den Messbereich der Sensoren begrenzen (-55 .. 125 Grad C)
+    if (t16 < -55 * 16)
+        t16 = -55 * 16;
+    if (t16 > 125 * 16)
+        t16 = 125 * 16;
+
+    int16_t pos = (t16 - TEMP_UNTEN * 16) / (TEMP_SCHRITT * 16) + 1;
+
+    if (pos < 1)
+        pos = 1;
+    if (pos > LED_BAND)
+        pos = LED_BAND;
+    led_band_punkt(pos);
+
+    int16_t z = (t16 * 10 + (t16 < 0 ? -8 : 8)) / 16;   // Zehntel Grad, gerundet
+    rs485_puts_P(PSTR("T="));
+    if (z < 0)
+    {
+        rs485_putc('-');
+        z = -z;
+    }
+    rs485_zahl(z / 10);
+    rs485_putc('.');
+    rs485_putc('0' + z % 10);
+    rs485_puts_P(sensor_extern ? PSTR(" ext\r\n") : PSTR(" int\r\n"));
+}
+
+static void temperatur_fehler(void)
+{
+    led_band_balken(0);
+    led_an[1] = led_an[LED_BAND] = 1;       // LED 1 und 10: Sensorfehler
+    rs485_puts_P(PSTR("T=Fehler\r\n"));
+}
+
+static void temperatur_init(void)
+{
     uint16_t tmp = eeprom_read_word(EE_TEMP_KALIB);
-    if (tmp != 0xFFFF && // gelöschter EEPROM
-        tmp > 200 && tmp < 350) // Plausibilität
+    if (tmp != 0xFFFF &&                    // geloeschter EEPROM
+        tmp > 200 && tmp < 350)             // Plausibilitaet
         temp_offset = tmp;
-
-    bool ds18b20_present = false;
 
     // Abfrage, ob ein Potenziometer an ADC2 (JP2) steckt. Poti muss
     // Mittelstellung sein, damit das funktioniert. Befindet es sich
     // zu weit Richtung GND, wird der Bootloader aktiviert.  Befindet
     // es sich nahe am Vcc-seitigen Anschlag, ist es nicht von einem
     // unbeschalteten JP2 (Pullup nach PC3) unterscheidbar.
-    uint8_t adc2 = ADC_read_ADC2();
-    if (adc2 < 240)
+    if (adc2_lesen() < 240)
     {
-        sbi(AD_WANDLER, FLAGS);
-        sbi(KALIBRIERUNG, SW_FLAGS);
+        kalibrierung = true;
+        rs485_puts_P(PSTR("Kalibriermodus aktiv\r\n"));
+    }
+    else if (ow_reset() && Get_ROMCode(romcode) &&
+             (romcode[0] == DS18B20 || romcode[0] == DS1820))
+    {
+        sensor_extern = true;
+        if (romcode[0] == DS18B20)
+            Configure_DS18B20();
+    }
+    rs485_puts_P(sensor_extern ?
+                 (romcode[0] == DS18B20 ? PSTR("DS18B20\r\n") : PSTR("DS1820\r\n")) :
+                 PSTR("Interner Sensor\r\n"));
 
+    adc_temp_init();
+    mess_warte = 50;                        // Referenz einschwingen lassen
+}
+
+static void temperatur_tick(bool taste)
+{
+    if (taste)
+    {
+        if (kalibrierung)
+        {
+            // Taste beendet Kalibriermodus
+            kalibrierung = false;
+            eeprom_update_word(EE_TEMP_KALIB, temp_offset);
+            rs485_puts_P(PSTR("Kalibrierung beendet\r\n"));
+        }
+        if (!ow_warte)
+            mess_warte = 1;                 // sofort neu messen
+    }
+
+    if (ow_warte)
+    {
+        if (--ow_warte == 0)
+        {
+            int16_t t16;
+            if (ow_messung_lesen(romcode[0], &t16))
+                temperatur_anzeigen(t16);
+            else
+                temperatur_fehler();
+        }
+        return;
+    }
+
+    if (--mess_warte)
+        return;
+    mess_warte = kalibrierung ? MESS_TAKT_KALIB : MESS_TAKT;
+
+    if (sensor_extern)
+    {
+        if (ow_messung_starten())
+            ow_warte = romcode[0] == DS18B20 ? 10 : 80;     // 100 ms / 800 ms
+        else
+            temperatur_fehler();
     }
     else
     {
-        ds18b20_present = ow_reset();
-    }
-    TIMER_init(qbi(KALIBRIERUNG, SW_FLAGS));
-
-    //DEBUG
-    //LED_TASK[1][0]=1; // LED 1 AN
-    //LED_TASK[3][0]=1; // LED 3 AN
-    /*
-    for (uint8_t step = 0; step <= LED_ANZAHL ; step++)
-    {
-
-            LED_TASK[step][0]=1;
-
-    }
-    */
-    if (ds18b20_present)
-    {
-        bool ok = Get_ROMCode(romcode);
-        if (ok)
+        temperatur_anzeigen(temp_intern());
+        if (kalibrierung)
         {
-            if (romcode[0] == DS18B20)
-            {
-                Configure_DS18B20();
-            }
-            else if (romcode[0] == DS1820)
-            {
-                // OK
-            }
-            else // unknown 1wire device
-            {
-                ds18b20_present = false;
-            }
-        }
-        else
-        {
-            ds18b20_present = false;
+            // Poti nach der Messung lesen, damit die Referenz bis zur
+            // naechsten Messung wieder eingeschwungen ist
+            uint8_t poti = adc2_lesen();
+            temp_offset = 280 + 30u * poti / 255;
+            rs485_puts_P(PSTR("Offset="));
+            rs485_zahl(temp_offset);
+            rs485_puts_P(PSTR("\r\n"));
         }
     }
-#if UART_DEBUG == 1
-    putstring("Tempanzeige und Wuerfel Ver 0.4\r\n");         // Ausgabe Versionstext Text
-    putstring(ds18b20_present?
-              (romcode[0] == DS18B20? "DS18B20\r\n": "DS1820\r\n"):
-              "Interner Sensor\r\n");
-    if (qbi(KALIBRIERUNG, SW_FLAGS))
-        putstring("Kalibriermodus aktiv\r\n");
+}
+
+/******************************************************************************
+Betriebsart starten
+******************************************************************************/
+static void betriebsart_starten(uint8_t ba)
+{
+    betriebsart = ba;
+    led_alle(false);
+
+    switch (ba)
+    {
+    case BA_TEMPERATUR:
+        temperatur_init();
+        break;
+    case BA_ZWEISPIELER:
+        zweispieler_init();
+        break;
+    case BA_RS485_SPIEL:
+        netz_init();
+        break;
+    }
+}
+
+#if UART_DEBUG
+/******************************************************************************
+Debug-Befehle ueber RS485:  '>' Adresse Kommando Wert CRC (CRC = Adresse)
+  0  Ausgabe Software Version
+  1  Betriebsart setzen (Wert = BA_...)
+  3  Taster simulieren
+******************************************************************************/
+void debug_befehl(const uint8_t *cw)
+{
+    if (cw[0] != ADR485 || cw[3] != ADR485)
+        return;
+
+    switch (cw[1])
+    {
+    case 0:
+        rs485_puts_P(PSTR("Version " VERSION "\r\n"));
+        break;
+    case 1:
+        if (cw[2] <= BA_RS485_SPIEL)
+        {
+            rs485_puts_P(PSTR("Betriebsart:"));
+            rs485_zahl(cw[2]);
+            rs485_puts_P(PSTR("\r\n"));
+            betriebsart_starten(cw[2]);
+        }
+        break;
+    case 3:
+        taste_simuliert = true;
+        break;
+    }
+}
 #endif
+
+int main(void)
+{
+    ports_init();
+    ow_power(true);
+    led_init();
+    timer_init();
+    rs485_init();
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    sei();                              // INTERRUPTS GLOBAL AN
+
+    uint8_t ba = jumper_lesen();
+
+    // Lampentest, danach die gewaehlte Betriebsart als Augenzahl (1..5)
+    led_alle(true);
+    _delay_ms(500);
+    led_alle(false);
+    led_wuerfel(ba + 1);
+    _delay_ms(1000);
+
+    rs485_puts_P(PSTR("\r\nTempanzeige und Wuerfel Ver " VERSION ", Betriebsart "));
+    rs485_zahl(ba);
+    rs485_puts_P(PSTR("\r\n"));
+
+    betriebsart_starten(ba);
 
     while (1)
     {
-#if UART_DEBUG == 1
-        uart_action();
-#endif
+        rs485_empfang();
 
-/*****************************************************************************
- Abfrage Taster zum starten des Wuerfels und Auswertung der Jumper
-
-
-******************************************************************************/
-        if (qbi(T_FLAG, FLAGS))
+        if (!tick_neu)
         {
-            if (!qbi(SW_WUERFEL, SW_PORT) && (!qbi(SW_SPERRE,SW_FLAGS)))
-            {
-                cbi(T_FLAG, FLAGS);
-                if (qbi(KALIBRIERUNG, SW_FLAGS))
-                {
-                    // Taste beendet Kalibriermodus
-                    cbi(KALIBRIERUNG, SW_FLAGS);
-                    eeprom_write_word(EE_TEMP_KALIB, temp_offset);
-                    TIMER_init(false); // Timer in normalen Modus zurück
-#if UART_DEBUG
-                    putstring("Kalibrierung beendet\r\n");
-#endif
-                }
-                else
-                {
-                    switch (mode)
-                    {
-                        case 0:                         // Temperatur Anzeige
-                            cbi(TEMP_OFF, FLAGS);       // Temperaturanzeige AN
-                            cbi(TEMPISOFF, FLAGS);      // Ruecksetzen TEMPIS OFF
-                            for (uint8_t step = 1; step <= 19 ; step++)
-                            {
-                                LED_TASK[step][0] = 0;  // LEDs aus
-                            }
-                            break;
-
-                        case 1:                         // Wuerfel
-                            sbi(TEMP_OFF, FLAGS);       // Temperaturanzeige AUS
-                            cbi(WUERFEL_7, FLAGS);      // Wuerfel 1 - 6
-                            multi_player(0);            // Singelplayer
-                            break;
-
-                        case 2:                         // Wuerfel
-                            sbi(TEMP_OFF, FLAGS);       // Temperaturanzeige AUS
-                            sbi(WUERFEL_7, FLAGS);      // Wuerfel 1 - 7
-                            multi_player(0);            // Singelplayer
-                            break;
-
-                        case 3:                         // Wuerfel
-                            sbi(SW_SPERRE,SW_FLAGS);   // Sperre Taster
-                            sbi(TEMP_OFF, FLAGS);       // Temperaturanzeige AUS
-                            cbi(WUERFEL_7, FLAGS);      // Wuerfel 1 - 6
-                            if (qbi(PLAYER, FLAGS))
-                            {
-                                multi_player(1);        // Player1
-                                cbi(PLAYER, FLAGS);
-                            }
-                            else
-                            {
-                                multi_player(2);        // Player 2
-                                sbi(PLAYER, FLAGS);
-                            }
-                            break;
-
-                        case 4:                         // Wuerfel
-                            sbi(TEMP_OFF, FLAGS);       // Temperaturanzeige AUS
-                            sbi(WUERFEL_7, FLAGS);      // Wuerfel 1 - 7
-                            if (qbi(PLAYER, FLAGS))
-                            {
-                                multi_player(1);        // Player1
-                                cbi(PLAYER, FLAGS);
-                            }
-                            else
-                            {
-                                multi_player(2);         // Player2
-                                sbi(PLAYER, FLAGS);
-                            }
-                            break;
-
-                        case 5:
-                            // Noch nicht implementiert
-                            break;
-
-                        case 6:
-                            // Alle LEDs an
-                            sbi(TEMP_OFF, FLAGS);        // Temperaturanzeige AUS
-                            sbi(TEMPISOFF, FLAGS);
-                            for (uint8_t step = 1; step <= 19 ; step++)
-                            {
-                                LED_TASK[step][0] = 1;
-                            }
-                            break;
-                    }
-                }
-            }
+            sleep_mode();               // aufwachen mit dem naechsten Interrupt
+            continue;
         }
+        tick_neu = false;
 
+        bool taste = taste_abfragen();
 
-/*****************************************************************************
- startet den Analogdigitalwandler
- zum Auslesen des int Temp Sensor
-
-******************************************************************************/
-         if (qbi(AD_WANDLER, FLAGS))
-         {
-             cbi(AD_WANDLER, FLAGS);
-             if (ds18b20_present)
-             {
-                 temp_1wire = temp_ds18b20();
-                 sbi(TEMPANZEIGE, SW_FLAGS);
-#if UART_DEBUG
-                 char b[20];
-                 sprintf(b, "temp 1wire %.2f\r\n", temp_1wire);
-                 putstring(b);
-#endif
-             }
-             else
-             {
-                 sbi(6, ADCSRA); // Wandlung starten
-                 //sbi(ADIE,ADC); // Interrupt ein
-             }
-         }
-
-
-
-/******************************************************************************
-Ausgabe der Temperaturdaten auf das LED Band
-Ist Temp OFF gesetzt werden die TEMP LEDS geloescht
-FLAG TEMPISOFF wird gesetzt damit das LED Temperaturband nur einmal ruckgesetzt wird
-******************************************************************************/
-         if (qbi(TEMP_OFF, FLAGS))
-         {
-             if (!qbi(TEMPISOFF, FLAGS))
-             {
-                 sbi(TEMPISOFF, FLAGS);
-                 for (uint8_t step = 0; step <= 10 ; step++)
-                 {
-                     LED_TASK[step][0] = 0;
-                 }
-             }
-         }
-         else
-         {
-             if (qbi(TEMPANZEIGE,SW_FLAGS))
-             {
-                 cbi(TEMPANZEIGE, SW_FLAGS);
-
-                 if (qbi(KALIBRIERUNG, SW_FLAGS))
-                 {
-                     adc2 = ADC_read_ADC2();
-                     temp_offset = 280 + 30u * adc2 / 255;
-#if UART_DEBUG
-                     char b[30];
-                     sprintf(b, "ADC2 = %d, offset = %d\r\n",
-                             adc2, temp_offset);
-                     putstring(b);
-#endif
-                 }
-
-                 double t;
-                 if (ds18b20_present)
-                     t = temp_1wire;
-                 else
-                     t = temp_internal();
-
-#if UART_DEBUG
-                     char b[30];
-                     sprintf(b, "temp_adc = %d, t = %.2f\r\n",
-                             temperaturdaten, t);
-                     putstring(b);
-#endif
-                 ledband(t, 12.0, 30.0);
-             }
-         }
-
-/******************************************************************************
-Im Multiplayer Mode
-Hier wird nach dem Wuerfeln die Anzeige des aktuellen Spielstandes aktualisiert
-Ist der Spielstand kleiner 10 blinkt die erste LED der Anzeige
-******************************************************************************/
-         if ((drehaktiv == 0) && (qbi(TEMPISOFF, FLAGS)) && (mode > 2))
-         {
-             if (qbi(PLAYER, FLAGS))
-             { // PLAYER 2
-                 if (player2 > 10)
-                 {
-                     for (uint8_t step = 1; step <= (player2 - 10) ; step++)
-                     {
-                         LED_TASK[step][0] = 1;
-                     }
-                 }
-                 else
-                 {
-                     if (qbi(4, counter))
-                     {
-                         LED_TASK[1][0] = 1;
-                     }
-                     else
-                     {
-                         LED_TASK[1][0] = 0;
-                     }
-                 }
-             }
-             else
-             { //PLAYER 1
-                 if (player1 > 10)
-                 {
-                     for (uint8_t step = 1; step <= (player1 - 10) ; step++)
-                     {
-                         LED_TASK[step][0] = 1;
-                     }
-                 }
-                 else
-                 {
-                     if (qbi(4, counter))
-                     {
-                         LED_TASK[1][0] = 1;
-                     }
-                     else
-                     {
-                         LED_TASK[1][0] = 0;
-                     }
-                 }
-             }
-         }
-
-
-/******************************************************************************
-Wenn dreaktiv gesetzt ist startet der Wuerfel,
-drehaktiv bestimmt die Anzahl der Umlaufe
-Uebergabe der Geschwindigkeit des Wuerfels
-******************************************************************************/
-
-         if (drehaktiv)
-         {
-             wuerfellos(3);
-         }
-    }
-}
-
-
-
-// Hier beginnen die Funktionen
-
-
-/******************************************************************************
-Multi player Mode
-case 0 Spielstart
-case 1 Aufruf Spieler 1
-case 2 Aufruf Spieler 2
-
-******************************************************************************/
-void multi_player(uint8_t playernr)
-{
-    sbi(TEMP_OFF, FLAGS);            // Temperaturanzeige AUS
-    ztemp = zufall;
-    for (uint8_t step = 1; step <= 10 ; step++)
-    {
-        LED_TASK[step][0] = 0; //LEDs 1 bis 10 aus
-    }
-    LED_TASK[18][0] = 0; // LED 10 AUS
-    LED_TASK[19][0] = 0; // LED 19 AUS
-
-    switch (playernr)
-    {
-    case 0:
-        player1 = 0;
-        player2 = 0;
-        break;
-
-    case 1:
-        cbi(PLAYER, FLAGS); // PLAYER 1
-        LED_TASK[18][0] = 1; // LED 10 AN
-        LED_TASK[19][0] = 0; // LED 19 AUS
-        player1 = player1 + ztemp;
-#if UART_DEBUG == 1
-        UART_SendByte('A');
-        errorcodeu(player1); // DEBUG
-		UART_SendByte(':');
-#endif
-        break;
-
-    case 2:
-        sbi(PLAYER,FLAGS); // PLAYER 2
-        LED_TASK[18][0] = 0; // LED 10 AUS
-        LED_TASK[19][0] = 1; // LED 19 AN
-        player2 = player2 + ztemp;
-#if UART_DEBUG == 1
-        UART_SendByte('B');
-        errorcodeu(player2); // DEBUG
-		UART_SendByte(':');
-#endif
-        break;
-    }
-    drehaktiv = rand() % 6 + 1;
-}
-
-/***************************************************************************************
-Abfrage der Jumper
-0. Kein Jumper Rueckgabewert 0
-1. Test Jumper zwischen GND und MOSI Ruckgabewert 1
-2. Test Jumper zwischen SCK und MOSI Rückgabewert 2
-3. Test Jumper zwischen SCK und MISO Rückgabewert 3
-***************************************************************************************/
-
-uint8_t jumper(void)
-{
-    // Test Jumper 4-6 (MOSI - GND)
-    sbi(JMP_MOSI, JMP_PORT); // PULL UP An
-    _delay_us(1);
-    if (!qbi(JMP_MOSI, JMP_PIN))
-    {
-        cbi(JMP_MOSI, JMP_PORT);
-        return 1;
-    }
-
-    // Test Jumper 3-4 (SCK - MOSI)
-    sbi(JMP_SCK, JMP_DDR); // SCK ist Ausgang
-    cbi(JMP_SCK, JMP_PORT); // aktiv low
-    _delay_us(1);
-    // MOSI hat immer noch Pullups
-    if (!qbi(JMP_MOSI, JMP_PIN))
-    {
-        cbi(JMP_MOSI, JMP_PORT);
-        cbi(JMP_SCK, JMP_DDR);
-        return 2;
-    }
-
-    // Test Jumper 3-1 (SCK - MISO)
-    cbi(JMP_MOSI, JMP_PORT); // MOSI floatet
-    sbi(JMP_MISO, JMP_PORT); // Pullup an MISO
-    _delay_us(1);
-    if (!qbi(JMP_MISO, JMP_PIN))
-    {
-        cbi(JMP_MISO, JMP_PORT);
-        cbi(JMP_SCK, JMP_DDR);
-        return 3;
-    }
-
-    // kein Jumper gesteckt
-    cbi(JMP_MISO, JMP_PORT);
-    cbi(JMP_SCK, JMP_DDR);
-
-    return 0;
-}
-
-
-/***************************************************************************************
-Steuerung des LED Multiplexers
-ueber den Uebergabeparameter wird festgelegt welche LED eingeschaltet wird
-Die Globale Variable LED Helligkeit legt fest mit welcher Helligkeit (Pulsweite) die LED´s angesteuert werden
-***************************************************************************************/
-
-void led_multiplex(uint8_t ledcount)
-{
-    if (MAX_HELL < LED_HELLIGKEIT )
-    {
-        LED_HELLIGKEIT = MAX_HELL;  // hier wird die vorgegebene Helligkeit auf den maximal zulaessigen Wert begrenzt
-    }
-
-    if (LED_Timer)
-    {                       // wenn LED Timer fuer Multiplexer 0, dann kann die naechste LED geschaltet werden
-                            // Diese Funktion steuert das Multiplexing und das Puls-/Pausenverhaeltnis der LEDs
-        LED_Timer--;        // besser ueber Interrupt
-        if (LED_Timer <= (MAX_HELL - LED_HELLIGKEIT))
+        switch (betriebsart)
         {
-            zeilenwahl(0);      // Alle LEDs AUS
-        }
-    }
-    else
-    {                   // wenn LED Timer 0 wird die auf die naechste LED geschaltet
-        if (LED_TASK[ledcount][0])
-        {
-            zeilenwahl(ledcount);   // LED AN wenn Array 1
-        }
-        LED_Timer = MAX_HELL;       // bestimmt die Durchlaufzeit (Puls + Pause)
-    }
-}
+        case BA_TEMPERATUR:
+            temperatur_tick(taste);
+            break;
 
-/***************************************************************************************
-Ansteuerung Wuerfel (7 LEDs) Zahlen von 1 bis 7 sind moeglich
-***************************************************************************************/
-void wuerfel(uint8_t wzahl)
-{
-    for (uint8_t step = 11; step <= 17 ; step++)    // Abschalten aller 7 LEDs
-    {
-        LED_TASK[step][0] = 0;                      // Abschalten aller LEDs auf dem Wuerfelfeld
-    }
-    switch (wzahl)
-    {
-    case 1:                 // Wuerfel Zahl 1
-        LED_TASK[11][0] = 1;      // Wuerfel Zahl 1 >  LED 11
-        break;                  // Ende case
+        case BA_WUERFEL_6:
+        case BA_WUERFEL_7:
+            if (taste)
+                einzel_taste(betriebsart == BA_WUERFEL_7 ? 7 : 6);
+            wuerfel_tick();
+            break;
 
-    case 2:                 // Wuerfel Zahl 2
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 2 >  LED 14
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 2 >  LED 16
-        break;                  // Ende case
+        case BA_ZWEISPIELER:
+            if (taste)
+                zweispieler_taste();
+            zweispieler_tick();
+            break;
 
-    case 3:                 // Wuerfel Zahl 3
-        LED_TASK[11][0] = 1;      // Wuerfel Zahl 3 >  LED 11
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 3 >  LED 14
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 3 >  LED 16
-        break;                  // Ende case
-
-    case 4:                 // Wuerfel Zahl 4
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 4 >  LED 14
-        LED_TASK[15][0] = 1;      // Wuerfel Zahl 4 >  LED 15
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 4 >  LED 16
-        LED_TASK[17][0] = 1;      // Wuerfel Zahl 4 >  LED 17
-        break;                  // Ende case
-
-    case 5:                 // Wuerfel Zahl 5
-        LED_TASK[11][0] = 1;      // Wuerfel Zahl 5 >  LED 11
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 5 >  LED 14
-        LED_TASK[15][0] = 1;      // Wuerfel Zahl 5 >  LED 15
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 5 >  LED 16
-        LED_TASK[17][0] = 1;      // Wuerfel Zahl 5 >  LED 17
-        break;                  // Ende case
-
-    case 6:                 // Wuerfel Zahl 6
-        LED_TASK[12][0] = 1;      // Wuerfel Zahl 6 >  LED 12
-        LED_TASK[13][0] = 1;      // Wuerfel Zahl 6 >  LED 13
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 6 >  LED 14
-        LED_TASK[15][0] = 1;      // Wuerfel Zahl 6 >  LED 15
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 6 >  LED 16
-        LED_TASK[17][0] = 1;      // Wuerfel Zahl 6 >  LED 17
-        break;                  // Ende case
-
-    case 7:                 // Wuerfel Zahl 7
-        LED_TASK[11][0] = 1;      // Wuerfel Zahl 7 >  LED 11
-        LED_TASK[12][0] = 1;      // Wuerfel Zahl 7 >  LED 12
-        LED_TASK[13][0] = 1;      // Wuerfel Zahl 7 >  LED 13
-        LED_TASK[14][0] = 1;      // Wuerfel Zahl 7 >  LED 14
-        LED_TASK[15][0] = 1;      // Wuerfel Zahl 7 >  LED 15
-        LED_TASK[16][0] = 1;      // Wuerfel Zahl 7 >  LED 16
-        LED_TASK[17][0] = 1;      // Wuerfel Zahl 7 >  LED 17
-        break;                  // Ende case
-    }
-
-}
-
-
-/******************************************************************************
- Ansteuerung des Wuerfels
- Startet mit einen drehenden Feld im Wuerfel Segment
- Parameteruebergabe:
- drehg (Geschwindigkeit des Zeigers)
-Die Variable wzeiger bestimmt die Geschwindigkeit und wird im Timer2 hochgezaehlt
-******************************************************************************/
-void wuerfellos(uint8_t drehg)
-{
-    if (qbi(drehg, wzeiger))
-    {
-        wzeiger = 0;
-        drehenr(drehcounter);
-        drehcounter++;
-        if (drehcounter >= 7)
-        {
-            drehcounter = 1;
-            drehaktiv--;
-        }
-    }
-    if (!drehaktiv)
-    {
-        wuerfel(ztemp);
-    }
-}
-
-/***************************************************************************************
-Ansteuerung Wuerfelfeld (7 LEDs) um einen drehenden Zeiger darzustellen
-Wird genutzt um eine Wuerfel Aktivitaet darzustellen
-Uebergabe der Zeigerstellung
-***************************************************************************************/
-void drehenr(uint8_t wstep)
-{
-    for (uint8_t step = 11; step <= 17 ; step++)    // Abschalten aller 7 LEDs
-    {
-        LED_TASK[step][0] = 0;                        // Abschalten aller LEDs auf dem Wuerfelfeld
-    }
-
-    switch (wstep)
-    {
-    case 1:                 // Step 1 -
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[12][0] = 1;      // LED 12
-        LED_TASK[13][0] = 1;      // LED 13
-        break;                  // Ende case
-
-    case 2:                 // Step 2 nr
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[15][0] = 1;      // LED 15
-        LED_TASK[17][0] = 1;      // LED 17
-        break;                  // Ende case
-
-    case 3:                 // Step 3 /
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[14][0] = 1;      // LED 14
-        LED_TASK[16][0] = 1;      // LED 16
-        break;                  // Ende case
-
-    case 4:                 // Step 4 -
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[12][0] = 1;      // LED 12
-        LED_TASK[13][0] = 1;      // LED 13
-        break;                  // Ende case
-
-    case 5:                 // Step 5 nr
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[15][0] = 1;      // LED 15
-        LED_TASK[17][0] = 1;      // LED 17
-        break;                  // Ende case
-
-    case 6:                 // Step 6 /
-        LED_TASK[11][0] = 1;      // LED 11
-        LED_TASK[14][0] = 1;      // LED 14
-        LED_TASK[16][0] = 1;      // LED 16
-        break;                  // Ende case
-    }
-}
-
-/******************************************************************************
-Ansteuerung LED Band auf Basis AD Wandler
-******************************************************************************/
-
-void ledband(double wert, double unten, double oben)
-{
-    if (wert < unten)
-    {
-        // nur erste LED an
-        LED_TASK[1][0] = 1;
-        for (uint8_t step = 1; step <= 9 ; step++)
-            LED_TASK[step + 1][0] = 0;
-    }
-    else if (wert > oben)
-    {
-        // nur letzte LED an
-        LED_TASK[10][0] = 1;
-        for (uint8_t step = 0; step <= 8; step++)
-            LED_TASK[step + 1][0] = 0;
-    }
-    else
-    {
-        double delta = (oben - unten) / 9.0;
-        for (uint8_t step = 0; step <= 9 ; step++, unten += delta)
-        {
-            if (wert > unten && wert < unten + delta)
-                LED_TASK[step + 1][0] = 1;                  // Zuschalten LED auf den Band
-            else
-                LED_TASK[step + 1][0] = 0;                  // Abschalten der nichtaktiven LED auf den Band
+        case BA_RS485_SPIEL:
+            if (taste)
+                netz_taste();
+            netz_tick();
+            break;
         }
     }
 }
 
-
 /******************************************************************************
-Ansteuerung der LED im Multiplex Verfahren
-Das Timing wird per Timer Interrupt gesteuert
+INTERRUPT Timer 2 Compare A, alle 10 ms: Zeitbasis der Hauptschleife
 ******************************************************************************/
-void zeilenwahl(uint8_t zeile)
+ISR(TIMER2_COMPA_vect)
 {
-
-    switch (zeile)
-    {
-    case 1:
-        ZEILE1_ON;     // LED1 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_ON;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 2:
-        ZEILE1_ON;     // LED2 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_ON;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 3:
-        ZEILE1_ON;        // LED3 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_ON;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 4:
-        ZEILE1_ON;        // LED4 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_ON;
-        SPALTE5_OFF;
-        break;
-
-    case 5:
-        ZEILE1_ON;     // LED5 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_ON;
-        break;
-
-    case 6:
-        ZEILE1_OFF;        // LED6 AN
-        ZEILE2_ON;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_ON;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 7:
-        ZEILE1_OFF;        // LED7 AN
-        ZEILE2_ON;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_ON;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 8:
-        ZEILE1_OFF;        // LED8 AN
-        ZEILE2_ON;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_ON;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 9:
-        ZEILE1_OFF;        // LED9 AN
-        ZEILE2_ON;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_ON;
-        SPALTE5_OFF;
-        break;
-
-    case 10:
-        ZEILE1_OFF;        // LED10 AN
-        ZEILE2_ON;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_ON;
-        break;
-
-    case 11:
-        ZEILE1_OFF;        // LED11 AN
-        ZEILE2_OFF;
-        ZEILE3_ON;
-        ZEILE4_OFF;
-        SPALTE1_ON;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 12:
-        ZEILE1_OFF;        // LED12 AN
-        ZEILE2_OFF;
-        ZEILE3_ON;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_ON;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 13:
-        ZEILE1_OFF;        // LED13 AN
-        ZEILE2_OFF;
-        ZEILE3_ON;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_ON;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 14:
-        ZEILE1_OFF;        // LED14 AN
-        ZEILE2_OFF;
-        ZEILE3_ON;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_ON;
-        SPALTE5_OFF;
-        break;
-
-    case 15:
-        ZEILE1_OFF;        // LED15 AN
-        ZEILE2_OFF;
-        ZEILE3_ON;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_ON;
-        break;
-
-    case 16:
-        ZEILE1_OFF;        // LED16 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_ON;
-        SPALTE1_ON;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 17:
-        ZEILE1_OFF;        // LED17 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_ON;
-        SPALTE1_OFF;
-        SPALTE2_ON;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 18:
-        ZEILE1_OFF;        // LED18 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_ON;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_ON;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-
-    case 19:
-        ZEILE1_OFF;        // LED19 AN
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_ON;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_ON;
-        SPALTE5_OFF;
-        break;
-
-    default:
-        ZEILE1_OFF;        // LEDs AUS
-        ZEILE2_OFF;
-        ZEILE3_OFF;
-        ZEILE4_OFF;
-        SPALTE1_OFF;
-        SPALTE2_OFF;
-        SPALTE3_OFF;
-        SPALTE4_OFF;
-        SPALTE5_OFF;
-        break;
-    }
-}
-
-/***************************************************************************************
-INIT der Ein und Ausgabeports
-***************************************************************************************/
-
-void PORTs_init(void)
-{
-/* Belegung PORTB
-
-PB0 = Kathode LED 11,12,13,14,15
-PB1 = Kathode LED  6, 7, 8, 9,10
-PB2 = Kathode LED  1, 2, 3, 4, 5
-PB3 = MOSI / Jumper Konfig
-PB4 = MISO / Jumper Konfig
-PB5 = SCK  / Jumper Konfig
-PB6 = Quarz
-PB7 = Quarz
-Bei Init werden die PORTS PB0 bis PB2 als Ausgang gesetzt
-und die PORTS PB3 bis PB7 als Ausgang
-PULLUP Widerstaende zur Abfrage der Jumper Stellung werden im Programm gesetzt.
-
-*/
-    DDRB = 0b00000111;
-    PORTB =0b00000000;
-
-/* Belegung PORTC
-PC0 = USB D-
-PC1 = USB D+
-PC2 = 1 Wirer DATA 4,7K Widerstand geht auf Masse, in der Rev. 3.3 falsch?
-PC3 = 1 Wirer Power
-PC4 = Taster Start Wuerfel, Eingang mit internen Pull_UP
-PC5 = RX/TX Umschaltung fuer RS485 HI=TX LOW=RX
-PC6 = RESET
-PC7 = NC
-Alle Ports auf Eingang, bis auf PORT PC5 AUSGANG fuer DEBUG Ausgabe
-PULLUP Widerstand vom PORT PC2,PC4 aktive
-*/
-    DDRC =  0b00100000;
-    PORTC = 0b00010000;
-/* Belegung PORTD
-PD0 = RXD (485)
-PD1 = TXD (485)
-PD2 = Anode LED  5,10,15    > Spalte
-PD3 = Anode LED  4,9,14,19  > Spalte
-PD4 = Anode LED  3,8,13,18  > Spalte
-PD5 = Anode LED  2,7,12,17  > Spalte
-PD6 = Anode LED  1,6,11,16  > Spalte
-PD7 = Kathode LED 16,17,18,19 > Zeile
-Port PD2 bis PD7 auf Ausgang
-
-
-
-*/
-    DDRD =  0b01111100;
-    PORTD = 0b00000000;
-}
-
-/******************************************************************************
-TIMER INIT
-TIMER0 > Multiplexer
-TIMER1 > nicht genutzt
-TIMER2 > Zufallsgenerator und Rucksetzen des TX Betriebes UART
-AD-Wandler > Auslesen des internen Temperatursensor
-im Singel Conversations Modus
-
-fastmode wird für die Kalibrierung des internen ADC-Sensors genutzt
-******************************************************************************/
-void TIMER_init(bool fastmode)
-{
-
-    /*
-     * Timer 0: LED-Multiplexing, im Überlauf-Interrupt
-     */
-    TCCR0B = _BV(CS00); // Vorteiler 1, bei 3,68 MHz => 69us => 14kHz
-                        // bei 12 MHz => 47kHz
-    TIMSK0 = _BV(TOIE0); // Timer0 Overflow Interrupt Enable
-
-   /*
-     * Timer 1: allgemeine Zeitablaufsteuerung
-     */
-    if (fastmode)
-    {
-#if F_CPU < 10000000
-        TCCR1B = _BV(CS11); // Teiler 8, bei 3,68 MHz = 0,14s
-#else
-        TCCR1B = _BV(CS10) | _BV(CS11); // Teiler 256, bei 12 MHz = 0,35s
-#endif
-    }
-    else
-    {
-#if F_CPU < 10000000
-        TCCR1B = _BV(CS12); // Teiler  256, bei 3,68 MHz = 4,56s
-#else
-        TCCR1B = _BV(CS10) | _BV(CS12); // Teiler 1024, bei 12 MHz = 5,6s
-#endif
-    }
-    TIMSK1 = _BV(TOIE2); // Timer2 Overflow Interrupt Enable
-
-    /*
-     * Timer 2: allgemeine Zeitablaufsteuerung
-     */
-#if F_CPU < 10000000
-    TCCR2B = _BV(CS22) | _BV(CS21); // Teiler  256, bei 3,68 MHz 52 Hz Rate
-#else
-    TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20); // Teiler 1024, bei 12 MHz = 21,84ms
-#endif
-    TIMSK2 = _BV(TOIE2); // Timer2 Overflow Interrupt Enable
-
-}
-
-void ADC_init(bool tempmessung)
-{
-    ADCSRA = _BV(ADIF); // Ausschalten, Interrupt ggf. löschen
-
-    if (tempmessung)
-    {
-        // Interne Referenz 1,1 V; Kanal 8 (interner Temperatursensor)
-        ADMUX = _BV(REFS1) | _BV(REFS0) | _BV(MUX3);
-#if F_CPU < 10000000
-        // ADC enable, Vorteiler 32 => 115 kHz Takt bei 3,68 MHz
-        ADCSRA = _BV(ADEN) | _BV(ADPS2) | _BV(ADPS0) | _BV(ADIE);
-#else
-        // ADC enable, Vorteiler 64 => 187 kHz bei 12 MHz
-        ADCSRA = _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1) | _BV(ADIE);
-#endif
-    }
-    else // setup für Poti-Abfrage
-    {
-        // AVcc Referenz; Kanal ADC2, left-adjust result (nur 8 Bit in ADCH)
-        ADMUX = _BV(REFS0) | _BV(ADLAR) | 2;
-#if F_CPU < 10000000
-        // ADC enable, Vorteiler 32 => 115 kHz Takt bei 3,68 MHz
-        ADCSRA = _BV(ADEN) | _BV(ADPS2) | _BV(ADPS0);
-#else
-        // ADC enable, Vorteiler 64 => 187 kHz bei 12 MHz
-        ADCSRA = _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1);
-#endif
-    }
-}
-
-/******************************************************************************
-INTERRUPT Timer 0 Timerueberlauf
-Einsprung alle XX ms
-Dieser Timer wird fuer den Multiplexer genutzt
-*******************************************************************************/
-ISR(TIMER0_OVF_vect)
-{
-
-    if ((LED_TASK[LED_Timer][0]) && ( taskcount < 1 ))
-    {
-        zeilenwahl(LED_Timer);  // LED Ein
-    }
-    else
-    {
-        zeilenwahl(0);          // LED Aus
-    }
-
-    taskcount++;
-    if (taskcount > (MAX_HELL - LED_HELLIGKEIT))
-    {
-        taskcount = 0;
-    }
-
-    LED_Timer++;
-    if (LED_Timer > LED_ANZAHL)
-    {
-        LED_Timer = 1;
-    }
-}
-
-
-
-/******************************************************************************
-INTERRUPT Timer 1 Timerueberlauf
-16 BIT Timer
-Einsprung alle 5s
-
-*******************************************************************************/
-ISR(TIMER1_OVF_vect)
-{
-    sbi(AD_WANDLER, FLAGS); // Start Temperaturmessung interner Wandler
-    mode = jumper();
-
-	cbi(SW_SPERRE,SW_FLAGS);   // Freigabe Taster
-}
-
-/******************************************************************************
-INTERRUPT Timer 0 Vergleich A
-Wird nicht genutzt
-******************************************************************************/
-ISR (TIMER0_COMPA_vect)
-{
-
-}
-
-
-/******************************************************************************
-INTERRUPT Timer 2 Timerueberlauf
-Einsprung alle XX ms
-Setzt UART nach Zeit X wieder in den Empfangsmodus
-Zufallsgenerator fuer den Wuerfel
-Abfrage Taster alle 20ms
-******************************************************************************/
-
-ISR(TIMER2_OVF_vect)
-{
-
-// Funktion zum Ruecksetzen des aktiven Sendekanals der Schnittstelle RS485
-
-#if UART_DEBUG == 1
-    uart_timer_action();
-#endif
-
-// Test Zufallsgenerator fuer den Wuerfel
-    if (qbi(WUERFEL_7, FLAGS))
-    {
-        if (zufall >= 7)
-        {
-            zufall = 0;
-        }
-    }
-    else
-    {
-        if (zufall >= 6)
-        {
-            zufall = 0;
-        }
-    }
-    sbi(T_FLAG, FLAGS);  // Abfrage Taster
-
-    zufall++;
-    wzeiger++;
-	counter++;
-}
-
-/******************************************************************************
-INTERRUPT Analog Digital CONVERTER
-Auslesen der Temperaturdaten aus den AD Wandler
-Wenn aktuelle Daten vorliegen wird dieser ausgelesen und in 8 BIT Messwet gewandelt
-******************************************************************************/
-ISR(ADC_vect)
-{
-    temperaturdaten = ADC;
-    sbi(TEMPANZEIGE, SW_FLAGS);      // Aufrischen der Temperaturanzeige
+    ticks++;
+    tick_neu = true;
 }
 
 /*
