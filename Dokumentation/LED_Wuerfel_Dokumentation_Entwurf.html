@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>LED-Würfel und Thermometer – Bausatzbeschreibung (Entwurf)</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-center { content: "Seite " counter(page) " von " counter(pages); font: 8.5pt "Segoe UI", Arial, sans-serif; color: #777; }
+    @top-right { content: "LED-Würfel & Thermometer · Entwurf"; font: 8.5pt "Segoe UI", Arial, sans-serif; color: #999; }
+  }
+  @page :first { @top-right { content: none; } @bottom-center { content: none; } }
+
+  :root { --akzent: #1f4e79; --hell: #eaf1f8; --linie: #c9d6e3; --text: #222; }
+  html { font-family: "Segoe UI", Arial, sans-serif; font-size: 10pt; line-height: 1.45; color: var(--text); }
+  body { margin: 0; }
+  h1, h2, h3 { color: var(--akzent); line-height: 1.2; }
+  h2 { font-size: 15pt; margin: 0 0 8pt; padding-bottom: 3pt; border-bottom: 1.5pt solid var(--akzent); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14pt 0 4pt; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  section { break-before: page; }
+  section.weiter { break-before: auto; margin-top: 18pt; }
+  ul, ol { margin: 0 0 6pt; padding-left: 16pt; }
+  li { margin-bottom: 2pt; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 9pt; background: #f2f4f6; padding: 0 2pt; border-radius: 2pt; }
+  pre { font-family: Consolas, "Courier New", monospace; font-size: 8.8pt; background: #f2f4f6; border-left: 3pt solid var(--akzent); padding: 6pt 8pt; margin: 4pt 0 8pt; white-space: pre-wrap; break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 4pt 0 10pt; font-size: 9.3pt; break-inside: avoid; }
+  th { background: var(--akzent); color: #fff; text-align: left; font-weight: 600; padding: 4pt 6pt; }
+  td { border-bottom: 0.6pt solid var(--linie); padding: 3.5pt 6pt; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f9fb; }
+  .hinweis { border: 1pt solid #e0b84a; background: #fff8e1; padding: 6pt 9pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .hinweis b:first-child { color: #8a6100; }
+  .info { border: 1pt solid var(--linie); background: var(--hell); padding: 6pt 9pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .offen { border: 1pt dashed #b44; background: #fdf1f1; padding: 6pt 9pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .zwei { display: flex; gap: 14pt; align-items: flex-start; }
+  .zwei > * { flex: 1; }
+  figure { margin: 6pt 0 10pt; text-align: center; break-inside: avoid; }
+  figcaption { font-size: 8.5pt; color: #555; margin-top: 3pt; }
+
+  /* Titelseite */
+  .titel { height: 245mm; display: flex; flex-direction: column; }
+  .titel .band { background: var(--akzent); color: #fff; padding: 18mm 12mm 12mm; border-radius: 4pt; }
+  .titel .band .klein { font-size: 11pt; letter-spacing: 1.5pt; text-transform: uppercase; opacity: .85; }
+  .titel h1 { color: #fff; font-size: 30pt; margin: 6pt 0 4pt; }
+  .titel .unter { font-size: 14pt; opacity: .95; }
+  .titel .mitte { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .titel .meta { font-size: 9.5pt; color: #444; border-top: 1pt solid var(--linie); padding-top: 8pt; }
+  .titel .meta table td { border: none; padding: 1.5pt 8pt 1.5pt 0; background: none; }
+  .entwurf { display: inline-block; border: 1.5pt solid #ffc2c2; color: #ffc2c2; font-weight: 700; padding: 2pt 8pt; letter-spacing: 2pt; margin-top: 10pt; }
+
+  .toc { list-style: none; padding: 0; columns: 1; }
+  .toc li { border-bottom: 0.6pt dotted var(--linie); padding: 3pt 0; }
+  .toc .nr { display: inline-block; width: 22pt; color: var(--akzent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ============================ TITELSEITE ============================ -->
+<div class="titel">
+  <div class="band">
+    <div class="klein">Bausatz DARC S09</div>
+    <h1>LED-Würfel &amp; Thermometer</h1>
+    <div class="unter">Bausatzbeschreibung und Bedienungsanleitung</div>
+    <div class="entwurf">ENTWURF</div>
+  </div>
+  <div class="mitte">
+    <svg width="330" height="250" viewBox="0 0 330 250" xmlns="http://www.w3.org/2000/svg">
+      <!-- stilisierte Platine -->
+      <rect x="15" y="20" width="300" height="210" rx="14" fill="#1f6b3a"/>
+      <rect x="22" y="27" width="286" height="196" rx="10" fill="none" stroke="#5aa874" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <!-- LED Band -->
+      <g fill="#e53935">
+        <circle cx="50" cy="55" r="9"/><circle cx="76" cy="55" r="9"/><circle cx="102" cy="55" r="9"/>
+        <circle cx="128" cy="55" r="9"/><circle cx="154" cy="55" r="9"/><circle cx="180" cy="55" r="9"/>
+        <circle cx="206" cy="55" r="9"/><circle cx="232" cy="55" r="9"/><circle cx="258" cy="55" r="9" fill="#5c1a1a"/><circle cx="284" cy="55" r="9" fill="#5c1a1a"/>
+      </g>
+      <!-- Wuerfelfeld, Augenzahl 5 -->
+      <rect x="110" y="88" width="110" height="110" rx="14" fill="#f5f5f5"/>
+      <g fill="#c62828">
+        <circle cx="135" cy="113" r="10"/><circle cx="195" cy="113" r="10"/>
+        <circle cx="165" cy="143" r="10"/>
+        <circle cx="135" cy="173" r="10"/><circle cx="195" cy="173" r="10"/>
+      </g>
+      <g fill="#ddd"><circle cx="135" cy="143" r="10"/><circle cx="195" cy="143" r="10"/></g>
+      <!-- blaue LEDs -->
+      <circle cx="60" cy="143" r="11" fill="#1e88e5"/><circle cx="270" cy="143" r="11" fill="#0d2a4a"/>
+      <text x="60" y="172" font-size="11" fill="#cfe" text-anchor="middle" font-family="Segoe UI, Arial">Spieler 1</text>
+      <text x="270" y="172" font-size="11" fill="#cfe" text-anchor="middle" font-family="Segoe UI, Arial">Spieler 2</text>
+      <!-- Taster -->
+      <rect x="40" y="195" width="26" height="18" rx="3" fill="#333"/><circle cx="53" cy="204" r="5" fill="#777"/>
+      <text x="75" y="208" font-size="10" fill="#cfe" font-family="Segoe UI, Arial">Taster</text>
+    </svg>
+  </div>
+  <div class="meta">
+    <table>
+      <tr><td><b>Hardware</b></td><td>Platine Rev. 3.3, ATmega168P, 12 MHz</td></tr>
+      <tr><td><b>Firmware</b></td><td>Version 1.0 (Branch <span class="mono">ki-opt</span>)</td></tr>
+      <tr><td><b>Autoren</b></td><td>Uwe Liedtke, Jörg Wunsch</td></tr>
+      <tr><td><b>Stand</b></td><td>Oktober 2026 – Entwurf, noch nicht vollständig auf der Hardware geprüft</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============================ INHALT ============================ -->
+<section>
+  <h2>Inhalt</h2>
+  <ul class="toc">
+    <li><span class="nr">1</span>Einleitung</li>
+    <li><span class="nr">2</span>Die Platine im Überblick</li>
+    <li><span class="nr">3</span>Inbetriebnahme und Funktionswahl</li>
+    <li><span class="nr">4</span>Funktion 1: Temperaturanzeige</li>
+    <li><span class="nr">5</span>Funktion 2: Würfel für einen Spieler</li>
+    <li><span class="nr">6</span>Funktion 3: Zweispieler mit einem Würfel</li>
+    <li><span class="nr">7</span>Funktion 4: Zweispieler mit zwei Würfeln über RS485</li>
+    <li><span class="nr">8</span>RS485-Schnittstelle und Protokoll</li>
+    <li><span class="nr">9</span>Firmware bauen und aufspielen</li>
+    <li><span class="nr">10</span>Technische Daten und Portbelegung</li>
+    <li><span class="nr">11</span>Fehlersuche</li>
+    <li><span class="nr">12</span>Offene Punkte dieses Entwurfs</li>
+  </ul>
+
+  <section class="weiter">
+    <h2>1 Einleitung</h2>
+    <p>Die Idee zu diesem etwas aufwendigeren Bausatz baut auf unserem LED-Thermometer auf. Für das
+    Medienfestival wollten wir einen Bausatz anbieten, der zusätzlich eine Spielfunktion enthält.</p>
+    <p>Für das Zusammenbauen braucht man etwas mehr Zeit (etwa 60 bis 120 Minuten). Dafür hat man mit der
+    fertigen Platine eine ganze Menge Möglichkeiten: Sie ist Thermometer, elektronischer Würfel und
+    Spielbrett für zwei Personen – auf Wunsch sogar mit zwei vernetzten Platinen.</p>
+    <p>Die Firmware enthält vier Funktionen:</p>
+    <ol>
+      <li><b>Temperaturanzeige</b> mit dem internen Sensor des ATmega oder einem externen DS18B20/DS1820,
+      Anzeige auf dem LED-Band und zusätzlich über die RS485-Schnittstelle.</li>
+      <li><b>Würfel für einen Spieler</b>, wahlweise von 1 bis 6 oder von 1 bis 7.</li>
+      <li><b>Zweispieler „20 gewinnt“</b> mit einem gemeinsamen Würfel.</li>
+      <li><b>Zweispieler „20 gewinnt“ mit zwei Würfeln</b>: Zwei Platinen werden über RS485 verbunden,
+      jeder spielt an seinem eigenen Board.</li>
+    </ol>
+    <p>Alle Funktionen lassen sich erweitern, und neue können hinzukommen. Mit diesem Bausatz möchten wir
+    euch ermutigen, eure eigenen Ideen auszuprobieren. Wer nicht programmieren kann, teilt uns seine Idee
+    mit – dann setzen wir sie gemeinsam um.</p>
+  </section>
+</section>
+
+<!-- ============================ HARDWARE ============================ -->
+<section>
+  <h2>2 Die Platine im Überblick</h2>
+  <div class="zwei">
+    <div>
+      <h3>Baugruppen</h3>
+      <ul>
+        <li><b>Mikrocontroller</b> ATmega168P mit 12-MHz-Keramikresonator</li>
+        <li><b>19 LEDs</b> im Multiplexbetrieb (4 Zeilen × 5 Spalten)</li>
+        <li><b>Taster</b> zum Würfeln, Messen und Bestätigen</li>
+        <li><b>RS485</b> mit MAX481, Halbduplex, Anschlüsse A und B</li>
+        <li><b>Spannungsregler</b> TPS54308: Versorgung 12 V, intern 5 V</li>
+        <li><b>JP1</b> ISP-Stecker zum Programmieren und für die Funktions-Jumper</li>
+        <li><b>JP2</b> Anschluss für einen 1-Wire-Temperatursensor</li>
+      </ul>
+    </div>
+    <div>
+      <h3>LED-Belegung</h3>
+      <table>
+        <tr><th>LED</th><th>Aufgabe</th></tr>
+        <tr><td>1 – 10</td><td>LED-Band: Temperatur oder Punktestand</td></tr>
+        <tr><td>11 – 17</td><td>Würfelfeld (7 Augen, LED 11 = Mitte)</td></tr>
+        <tr><td>18</td><td>blaue LED Spieler 1</td></tr>
+        <tr><td>19</td><td>blaue LED Spieler 2</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>Anschlüsse</h3>
+  <table>
+    <tr><th style="width:22%">Anschluss</th><th>Bedeutung</th></tr>
+    <tr><td>12V+ / GND</td><td>Versorgungsspannung 12 V</td></tr>
+    <tr><td>A / B</td><td>RS485-Bus. Bei zwei Platinen A mit A und B mit B verbinden, dazu GND.</td></tr>
+    <tr><td>JP1 (AVR-ISP-6)</td><td>Programmieren über ISP; im Betrieb Steckplatz für die Funktions-Jumper</td></tr>
+    <tr><td>JP2</td><td>optionaler 1-Wire-Sensor DS18B20 oder DS1820 (Daten an PC2, Versorgung über PC3, 4,7 kΩ Pull-up)</td></tr>
+    <tr><td>USB (Micro)</td><td>D+/D− an PC1/PC0; von der aktuellen Firmware nicht genutzt</td></tr>
+  </table>
+
+  <h3>Die Augenbilder des Würfelfelds</h3>
+  <p>Das Würfelfeld hat sieben LEDs: Mitte, Mitte links und rechts sowie die vier Ecken. Damit sind die
+  Augenzahlen 1 bis 7 darstellbar.</p>
+  <figure>
+    <svg width="560" height="95" viewBox="0 0 560 95" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial">
+      <defs>
+        <g id="leer"><rect x="0" y="0" width="64" height="64" rx="9" fill="#fff" stroke="#1f4e79" stroke-width="1.5"/>
+          <g fill="#e6e9ee"><circle cx="15" cy="15" r="6"/><circle cx="49" cy="15" r="6"/><circle cx="15" cy="32" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="49" cy="32" r="6"/><circle cx="15" cy="49" r="6"/><circle cx="49" cy="49" r="6"/></g></g>
+      </defs>
+      <g fill="#c62828">
+        <g transform="translate(8,6)"><use href="#leer"/><circle cx="32" cy="32" r="6"/></g>
+        <g transform="translate(86,6)"><use href="#leer"/><circle cx="49" cy="15" r="6"/><circle cx="15" cy="49" r="6"/></g>
+        <g transform="translate(164,6)"><use href="#leer"/><circle cx="49" cy="15" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="15" cy="49" r="6"/></g>
+        <g transform="translate(242,6)"><use href="#leer"/><circle cx="15" cy="15" r="6"/><circle cx="49" cy="15" r="6"/><circle cx="15" cy="49" r="6"/><circle cx="49" cy="49" r="6"/></g>
+        <g transform="translate(320,6)"><use href="#leer"/><circle cx="15" cy="15" r="6"/><circle cx="49" cy="15" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="15" cy="49" r="6"/><circle cx="49" cy="49" r="6"/></g>
+        <g transform="translate(398,6)"><use href="#leer"/><circle cx="15" cy="15" r="6"/><circle cx="49" cy="15" r="6"/><circle cx="15" cy="32" r="6"/><circle cx="49" cy="32" r="6"/><circle cx="15" cy="49" r="6"/><circle cx="49" cy="49" r="6"/></g>
+        <g transform="translate(476,6)"><use href="#leer"/><circle cx="15" cy="15" r="6"/><circle cx="49" cy="15" r="6"/><circle cx="15" cy="32" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="49" cy="32" r="6"/><circle cx="15" cy="49" r="6"/><circle cx="49" cy="49" r="6"/></g>
+      </g>
+      <g font-size="11" fill="#333" text-anchor="middle">
+        <text x="40" y="88">1</text><text x="118" y="88">2</text><text x="196" y="88">3</text><text x="274" y="88">4</text><text x="352" y="88">5</text><text x="430" y="88">6</text><text x="508" y="88">7</text>
+      </g>
+    </svg>
+    <figcaption>Bild 1: Augenzahlen 1 bis 7 (schematisch, Lage der Ecken je nach Bestückungsdruck)</figcaption>
+  </figure>
+</section>
+
+<!-- ============================ INBETRIEBNAHME ============================ -->
+<section>
+  <h2>3 Inbetriebnahme und Funktionswahl</h2>
+  <p>Die Funktion wird <b>beim Einschalten</b> über Jumper am ISP-Stecker JP1 gewählt. Einen Jumper während
+  des Betriebs umzustecken hat keine Wirkung – erst nach dem nächsten Einschalten.</p>
+
+  <div class="zwei">
+    <figure style="flex:0 0 190pt">
+      <svg width="240" height="190" viewBox="0 0 240 190" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial" font-size="11">
+        <rect x="60" y="15" width="120" height="160" rx="6" fill="#222"/>
+        <g fill="#d4af37">
+          <rect x="82" y="35" width="22" height="22"/><rect x="136" y="35" width="22" height="22"/>
+          <rect x="82" y="84" width="22" height="22"/><rect x="136" y="84" width="22" height="22"/>
+          <rect x="82" y="133" width="22" height="22"/><rect x="136" y="133" width="22" height="22"/>
+        </g>
+        <polygon points="66,22 76,22 66,32" fill="#fff"/>
+        <g fill="#fff" text-anchor="middle" font-weight="600">
+          <text x="93" y="50">1</text><text x="147" y="50">2</text>
+          <text x="93" y="99">3</text><text x="147" y="99">4</text>
+          <text x="93" y="148">5</text><text x="147" y="148">6</text>
+        </g>
+        <g fill="#333" text-anchor="end"><text x="55" y="50">MISO</text><text x="55" y="99">SCK</text><text x="55" y="148">RESET</text></g>
+        <g fill="#333"><text x="185" y="50">VCC</text><text x="185" y="99">MOSI</text><text x="185" y="148">GND</text></g>
+      </svg>
+      <figcaption>Bild 2: ISP-Stecker JP1, Draufsicht (Standardbelegung AVR-ISP-6)</figcaption>
+    </figure>
+    <div>
+      <table>
+        <tr><th>Jumper</th><th>Anzeige</th><th>Funktion</th></tr>
+        <tr><td>keiner</td><td>1</td><td>Temperaturanzeige</td></tr>
+        <tr><td>4 – 6 (MOSI–GND)</td><td>2</td><td>Würfel 1 – 6</td></tr>
+        <tr><td>3 – 4 (SCK–MOSI)</td><td>3</td><td>Würfel 1 – 7</td></tr>
+        <tr><td>1 – 3 (MISO–SCK)</td><td>4</td><td>Zweispieler, ein Würfel</td></tr>
+        <tr><td>4 – 6 <b>und</b> 1 – 3</td><td>5</td><td>Zweispieler, zwei Würfel über RS485</td></tr>
+      </table>
+      <div class="hinweis"><b>Achtung:</b> Niemals Pin 2 (VCC) mit Pin 6 (GND) oder Pin 5 (RESET) mit Pin 6 brücken.
+      Zum Programmieren alle Jumper abziehen.</div>
+    </div>
+  </div>
+
+  <h3>Ablauf beim Einschalten</h3>
+  <ol>
+    <li>Jumper für die gewünschte Funktion stecken.</li>
+    <li>12 V anlegen. Alle 19 LEDs leuchten eine halbe Sekunde (<b>Lampentest</b>). So lässt sich nach dem
+    Löten schnell prüfen, ob jede LED richtig herum eingebaut ist.</li>
+    <li>Das Würfelfeld zeigt eine Sekunde lang die gewählte Funktion als Augenzahl (Spalte „Anzeige“).</li>
+    <li>Die Funktion startet. Über RS485 wird eine Startmeldung ausgegeben, z. B.
+    <span class="mono">Tempanzeige und Wuerfel Ver 1.0, Betriebsart 0</span>.</li>
+  </ol>
+</section>
+
+<!-- ============================ TEMPERATUR ============================ -->
+<section>
+  <h2>4 Funktion 1: Temperaturanzeige</h2>
+  <p>Ohne Jumper arbeitet die Platine als Thermometer. Beim Einschalten prüft die Software selbst, ob an JP2
+  ein externer Sensor steckt:</p>
+  <ul>
+    <li><b>DS18B20 oder DS1820 gefunden:</b> Dieser Sensor wird verwendet (genau, Auflösung 0,5 °C).</li>
+    <li><b>Kein Sensor:</b> Der interne Temperatursensor des ATmega wird ausgewertet. Er ist ungenau und muss
+    kalibriert werden (siehe unten).</li>
+  </ul>
+
+  <h3>Anzeige auf dem LED-Band</h3>
+  <p>Es leuchtet immer genau eine LED, jede LED steht für 2 °C:</p>
+  <table>
+    <tr><th>LED</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr>
+    <tr><td>°C</td><td>bis 14</td><td>14–16</td><td>16–18</td><td>18–20</td><td>20–22</td><td>22–24</td><td>24–26</td><td>26–28</td><td>28–30</td><td>ab 30</td></tr>
+  </table>
+  <p>Leuchten <b>LED 1 und LED 10 gleichzeitig</b>, ist der externe Sensor ausgefallen.</p>
+  <p>Gemessen wird alle 5 Sekunden, ein Tastendruck löst sofort eine Messung aus.</p>
+
+  <h3>Ausgabe über RS485</h3>
+  <p>Nach jeder Messung sendet die Platine eine Textzeile (9600 Baud, 8N1):</p>
+  <pre>T=21.5 ext      externer Sensor
+T=22.0 int      interner Sensor
+T=Fehler        Sensor antwortet nicht</pre>
+
+  <h3>Kalibrierung des internen Sensors</h3>
+  <ol>
+    <li>Ein Potenziometer an JP2 anschließen und auf <b>Mittelstellung</b> drehen.</li>
+    <li>Ohne Jumper einschalten. Über RS485 erscheint <span class="mono">Kalibriermodus aktiv</span>.</li>
+    <li>Ein Referenzthermometer daneben legen. Das Poti so lange verstellen, bis die Anzeige stimmt. Gemessen
+    wird jetzt alle 0,5 s, der aktuelle Wert kommt als <span class="mono">Offset=…</span> über RS485.</li>
+    <li>Taster drücken: Der Wert wird im EEPROM gespeichert (<span class="mono">Kalibrierung beendet</span>).</li>
+    <li>Poti abziehen. Ab jetzt wird beim Einschalten der gespeicherte Wert verwendet.</li>
+  </ol>
+  <div class="hinweis"><b>Hinweis:</b> Steht das Poti zu weit Richtung GND, wird beim Einschalten der
+  Bootloader statt des Kalibriermodus aktiviert. Steht es nahe am VCC-Anschlag, erkennt die Software es nicht.</div>
+</section>
+
+<!-- ============================ WUERFEL ============================ -->
+<section>
+  <h2>5 Funktion 2: Würfel für einen Spieler</h2>
+  <p>Mit Jumper 4–6 würfelt die Platine von 1 bis 6, mit Jumper 3–4 von 1 bis 7 – das siebte Auge ist dank
+  der sieben LEDs im Würfelfeld möglich.</p>
+  <ul>
+    <li>Taster drücken: Ein Balken dreht sich durch die Mitte des Würfelfelds, wird langsamer und bleibt nach
+    0,7 bis 1,8 Sekunden stehen. Dann erscheint die gewürfelte Zahl.</li>
+    <li>Während der Würfel dreht, wird ein weiterer Tastendruck ignoriert.</li>
+  </ul>
+  <div class="info"><b>Wie entsteht der Zufall?</b> Ein Zähler läuft mit 12 MHz, also 12 Millionen Schritten
+  pro Sekunde. Bei jeder Flanke am Taster – auch beim Prellen – wird der Zählerstand übernommen. Kein Mensch
+  kann so genau drücken, deshalb ist das Ergebnis echter Zufall.</div>
+
+  <section class="weiter">
+    <h2>6 Funktion 3: Zweispieler mit einem Würfel</h2>
+    <p>Mit Jumper 1–3 spielen zwei Personen abwechselnd mit demselben Würfel <b>„20 gewinnt“</b>: Wer zuerst
+    20 Punkte erreicht, hat gewonnen.</p>
+    <table>
+      <tr><th style="width:38%">Anzeige</th><th>Bedeutung</th></tr>
+      <tr><td>beide blauen LEDs blinken langsam</td><td>bereit, Spieler 1 beginnt mit dem ersten Tastendruck</td></tr>
+      <tr><td>blaue LED 18 bzw. 19 leuchtet</td><td>Spieler 1 bzw. 2 hat zuletzt gewürfelt</td></tr>
+      <tr><td>LED-Band</td><td>Punktestand dieses Spielers (siehe Tabelle unten)</td></tr>
+      <tr><td>ganzes Band und blaue LED blinken</td><td>dieser Spieler hat gewonnen</td></tr>
+    </table>
+    <h3>Punkteanzeige auf dem LED-Band</h3>
+    <table>
+      <tr><th style="width:38%">Punkte</th><th>Anzeige</th></tr>
+      <tr><td>0 – 10</td><td>LED 1 blinkt</td></tr>
+      <tr><td>11 – 19</td><td>Balken aus (Punkte − 10) LEDs, z. B. 14 Punkte = LED 1 bis 4</td></tr>
+      <tr><td>ab 20</td><td>alle 10 LEDs blinken – gewonnen</td></tr>
+    </table>
+    <p>Nach Spielende startet der nächste Tastendruck ein neues Spiel, und Spieler 1 würfelt sofort.</p>
+  </section>
+</section>
+
+<!-- ============================ RS485-SPIEL ============================ -->
+<section>
+  <h2>7 Funktion 4: Zweispieler mit zwei Würfeln über RS485</h2>
+  <p>Jetzt hat jeder Spieler seine eigene Platine. Beide Boards werden über RS485 verbunden und mit
+  <b>Jumper 4–6 und 1–3</b> gleichzeitig eingeschaltet. Gespielt wird wieder „20 gewinnt“.</p>
+
+  <figure>
+    <svg width="520" height="120" viewBox="0 0 520 120" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial" font-size="11">
+      <rect x="10" y="15" width="150" height="90" rx="8" fill="#1f6b3a"/>
+      <rect x="360" y="15" width="150" height="90" rx="8" fill="#1f6b3a"/>
+      <text x="85" y="50" fill="#fff" text-anchor="middle" font-size="13" font-weight="600">Board 1</text>
+      <text x="85" y="68" fill="#cfe" text-anchor="middle">Jumper 4–6 + 1–3</text>
+      <text x="435" y="50" fill="#fff" text-anchor="middle" font-size="13" font-weight="600">Board 2</text>
+      <text x="435" y="68" fill="#cfe" text-anchor="middle">Jumper 4–6 + 1–3</text>
+      <g font-weight="600"><text x="148" y="35" fill="#fff" text-anchor="end">A</text><text x="148" y="62" fill="#fff" text-anchor="end">B</text><text x="148" y="89" fill="#fff" text-anchor="end">GND</text>
+      <text x="372" y="35" fill="#fff">A</text><text x="372" y="62" fill="#fff">B</text><text x="372" y="89" fill="#fff">GND</text></g>
+      <line x1="160" y1="31" x2="360" y2="31" stroke="#c62828" stroke-width="2.5"/>
+      <line x1="160" y1="58" x2="360" y2="58" stroke="#1e88e5" stroke-width="2.5"/>
+      <line x1="160" y1="85" x2="360" y2="85" stroke="#333" stroke-width="2.5"/>
+      <text x="260" y="25" text-anchor="middle" fill="#c62828">A – A</text>
+      <text x="260" y="52" text-anchor="middle" fill="#1e88e5">B – B</text>
+      <text x="260" y="79" text-anchor="middle" fill="#333">GND – GND</text>
+    </svg>
+    <figcaption>Bild 3: Verbindung zweier Platinen. GND entfällt bei gemeinsamem Netzteil. Bei kurzen Leitungen (wenige Meter) ist kein Abschlusswiderstand nötig.</figcaption>
+  </figure>
+
+  <h3>Spielablauf</h3>
+  <ol>
+    <li>Beide Boards einschalten. Auf beiden blinken die blauen LEDs langsam: Es läuft noch kein Spiel.</li>
+    <li>Wer zuerst drückt, startet das Spiel, ist <b>Spieler 1</b> und würfelt sofort. Das andere Board wird
+    automatisch <b>Spieler 2</b>.</li>
+    <li>Der Würfel dreht auf <b>beiden</b> Boards gleichzeitig – man sieht also auch den Wurf des Gegners.</li>
+    <li>Danach blinkt die blaue LED auf dem Board des Spielers, der jetzt dran ist. Drückt der andere, passiert nichts.</li>
+    <li>Wer 20 Punkte erreicht, hat gewonnen: Auf seinem Board blinkt das ganze LED-Band.</li>
+    <li>Ein Tastendruck an einem der beiden Boards startet ein neues Spiel. Wer drückt, ist dann Spieler 1.</li>
+  </ol>
+
+  <h3>Anzeigen</h3>
+  <table>
+    <tr><th style="width:42%">Anzeige</th><th>Bedeutung</th></tr>
+    <tr><td>eigene blaue LED blinkt</td><td>du bist dran</td></tr>
+    <tr><td>eigene blaue LED leuchtet</td><td>der Gegenspieler ist dran, oder das Spiel ist beendet</td></tr>
+    <tr><td>beide blauen LEDs blinken langsam</td><td>kein Spiel – Taster startet eines</td></tr>
+    <tr><td>blaue LEDs blinken schnell im Wechsel</td><td>keine Verbindung zum anderen Board</td></tr>
+    <tr><td>LED-Band</td><td>eigener Punktestand (Anzeige wie in Kapitel 6)</td></tr>
+    <tr><td>Würfelfeld</td><td>letzter Wurf, eigener oder der des Gegners</td></tr>
+  </table>
+
+  <div class="info"><b>Robust gegen Störungen:</b> Jeder Wurf wird so lange wiederholt, bis das andere Board
+  ihn quittiert. Fällt die Verbindung aus, blinken die blauen LEDs im Wechsel; sobald sie wieder steht, geht
+  das Spiel weiter. Wird ein Board während eines Spiels aus- und wieder eingeschaltet, holt es sich den
+  Spielstand vom anderen Board.</div>
+</section>
+
+<!-- ============================ PROTOKOLL ============================ -->
+<section>
+  <h2>8 RS485-Schnittstelle und Protokoll</h2>
+  <p>Die Schnittstelle arbeitet mit <b>9600 Baud, 8 Datenbits, keine Parität, 1 Stoppbit</b>. Der MAX481 ist
+  halbduplex: Pin PC5 schaltet zwischen Senden (High) und Empfangen (Low) um. Die Firmware schaltet erst
+  nach dem letzten Stoppbit zurück auf Empfang.</p>
+  <p>Alle Meldungen sind lesbarer Text. Zum Mitlesen genügt ein USB-RS485-Adapter mit einem Terminalprogramm
+  (z. B. PuTTY oder HTerm).</p>
+
+  <h3>Rahmenformat des Spiels</h3>
+  <pre>':'  Typ  Daten (Hex)  CRC8 (Hex)  CR LF</pre>
+  <p>Der Typ ist ein Buchstabe. Die Daten werden als Hex-Ziffern übertragen. Die CRC8 (Dallas/iButton,
+  wie beim 1-Wire-Bus) läuft über Typ und Daten.</p>
+  <table>
+    <tr><th style="width:8%">Typ</th><th style="width:44%">Daten (je 1 Byte)</th><th>Bedeutung</th></tr>
+    <tr><td><b>Z</b></td><td>Spiel-ID, Zug-Nr., Absender, letzter Spieler, Wurf, Punkte Sp. 1, Punkte Sp. 2</td><td>Ein Wurf. Wird alle 250–400 ms wiederholt, bis die Quittung kommt.</td></tr>
+    <tr><td><b>Q</b></td><td>Spiel-ID, Zug-Nr.</td><td>Quittung für einen Zug</td></tr>
+    <tr><td><b>A</b></td><td>–</td><td>Anfrage nach dem Einschalten: „Läuft schon ein Spiel?“</td></tr>
+    <tr><td><b>S</b></td><td>wie Z</td><td>Aktueller Spielstand als Antwort auf A, ohne Quittung</td></tr>
+  </table>
+  <p>Jede Z- und S-Nachricht enthält den <b>kompletten Spielstand</b>. Geht eine Nachricht verloren, bringt
+  die nächste beide Boards wieder auf denselben Stand. Starten beide Spieler im selben Moment ein Spiel,
+  setzt sich das Spiel mit der höheren Spiel-ID durch.</p>
+
+  <h3>Beispiel</h3>
+  <pre>:A18                    Board 2 nach dem Einschalten: läuft ein Spiel?
+:Z3A010000040400BC      Board 1 (Spieler 1) würfelt eine 4, Stand 4 : 0
+:Q3A0144                Board 2 quittiert Zug 1
+                        (die letzten beiden Hex-Ziffern sind jeweils die CRC8)</pre>
+  <p>Aufschlüsselung der Z-Nachricht: <span class="mono">3A</span> Spiel-ID, <span class="mono">01</span> Zug 1,
+  <span class="mono">00</span> Absender Spieler 1, <span class="mono">00</span> letzter Wurf von Spieler 1,
+  <span class="mono">04</span> Wurf, <span class="mono">04</span> / <span class="mono">00</span> Punkte,
+  <span class="mono">BC</span> CRC8.</p>
+
+  <h3>Debug-Befehle (nur Firmware mit UART_DEBUG=1)</h3>
+  <p>Format: <span class="mono">'&gt;'</span> gefolgt von vier Binärbytes: Adresse (13), Kommando, Wert,
+  Prüfbyte (= Adresse).</p>
+  <table>
+    <tr><th style="width:15%">Kommando</th><th>Wirkung</th></tr>
+    <tr><td>0</td><td>Softwareversion ausgeben</td></tr>
+    <tr><td>1</td><td>Betriebsart umschalten (Wert 0 – 4)</td></tr>
+    <tr><td>3</td><td>Tastendruck simulieren</td></tr>
+  </table>
+</section>
+
+<!-- ============================ FIRMWARE ============================ -->
+<section>
+  <h2>9 Firmware bauen und aufspielen</h2>
+  <p>Der Quellcode liegt im Ordner <span class="mono">Software</span>:</p>
+  <table>
+    <tr><th style="width:18%">Datei</th><th>Inhalt</th></tr>
+    <tr><td>thermo.c</td><td>Start, Jumperabfrage, Taster, Hauptschleife, Temperaturanzeige</td></tr>
+    <tr><td>thermo.h</td><td>Einstellungen, Pinbelegung, gemeinsame Deklarationen</td></tr>
+    <tr><td>led.c</td><td>LED-Multiplexer mit PWM, Augenbilder, LED-Band</td></tr>
+    <tr><td>spiel.c</td><td>Würfel, Zweispieler, RS485-Spiel, Zufallsgenerator</td></tr>
+    <tr><td>rs485.c</td><td>Senden und Empfangen per Interrupt, Rahmenprotokoll</td></tr>
+    <tr><td>1wire.c</td><td>Ansteuerung DS18B20 / DS1820</td></tr>
+  </table>
+
+  <h3>Mit Visual Studio Code und PlatformIO</h3>
+  <p>Den Ordner <span class="mono">Software</span> in VS Code öffnen. Die <span class="mono">platformio.ini</span>
+  ist für den ATmega168P mit 12 MHz und den Programmer DIAMEX ISP USB-Prog NG eingerichtet.</p>
+  <ol>
+    <li>Im Geräte-Manager nachsehen, welchen COM-Port der Programmer hat, und
+    <span class="mono">upload_port</span> anpassen.</li>
+    <li><b>Alle Jumper von JP1 abziehen</b> und den Programmer anstecken. Die Platine muss versorgt sein.</li>
+    <li>In der PlatformIO-Leiste auf <b>Upload</b> klicken (nicht auf „Debug“ – das startet nur den Simulator).</li>
+  </ol>
+  <pre>upload_protocol = stk500v2
+upload_port     = COM3
+upload_speed    = 115200
+upload_flags    = -e        ; Chip vor dem Schreiben löschen</pre>
+  <div class="hinweis"><b>Wichtig:</b> Ohne <span class="mono">-e</span> löscht PlatformIO den Flash nicht, und
+  die Prüfung schlägt mit „verification error“ fehl. Der Chip-Erase löscht auch das EEPROM – eine vorhandene
+  Kalibrierung des internen Sensors geht verloren und muss danach wiederholt werden.</div>
+
+  <h3>Alternativ mit make (avr-gcc)</h3>
+  <pre>make                  Firmware bauen (build/led_wuerfel.hex)
+make UART_DEBUG=1     mit Debug-Befehlen über RS485
+make flash            mit avrdude programmieren</pre>
+
+  <h3>Fuses</h3>
+  <table>
+    <tr><th style="width:18%">Fuse</th><th style="width:12%">Wert</th><th>Bedeutung</th></tr>
+    <tr><td>Low</td><td>0xFD</td><td>externer Resonator, kein Teiler durch 8 – Takt 12 MHz</td></tr>
+    <tr><td>High</td><td>0xDF</td><td>ISP aktiv; EESAVE nicht gesetzt (EEPROM wird beim Löschen mitgelöscht)</td></tr>
+    <tr><td>Extended</td><td>0xF9</td><td>Start ab Adresse 0, kein Bootloader-Reset</td></tr>
+  </table>
+</section>
+
+<!-- ============================ TECHNIK ============================ -->
+<section>
+  <h2>10 Technische Daten und Portbelegung</h2>
+  <div class="zwei">
+    <table>
+      <tr><th colspan="2">Technische Daten</th></tr>
+      <tr><td>Versorgung</td><td>12 V, intern 5 V (TPS54308)</td></tr>
+      <tr><td>Controller</td><td>ATmega168P, 16 KB Flash, 1 KB RAM</td></tr>
+      <tr><td>Takt</td><td>12 MHz Keramikresonator</td></tr>
+      <tr><td>Firmware</td><td>ca. 5,1 KB Flash, 174 Byte RAM</td></tr>
+      <tr><td>LEDs</td><td>19 Stück, Multiplex 4 × 5, 310 Hz Bildrate</td></tr>
+      <tr><td>Schnittstelle</td><td>RS485, MAX481, 9600 Baud</td></tr>
+      <tr><td>Sensor</td><td>intern oder DS18B20 / DS1820</td></tr>
+    </table>
+    <table>
+      <tr><th colspan="2">Zeitbasis</th></tr>
+      <tr><td>Timer 0</td><td>LED-Multiplexer, Helligkeit per PWM</td></tr>
+      <tr><td>Timer 1</td><td>frei laufend 12 MHz, Zufallsquelle</td></tr>
+      <tr><td>Timer 2</td><td>10-ms-Takt der Hauptschleife</td></tr>
+      <tr><td>ADC</td><td>interner Sensor (Kanal 8, 1,1 V), Poti an ADC2</td></tr>
+    </table>
+  </div>
+
+  <h3>Portbelegung</h3>
+  <table>
+    <tr><th style="width:9%">Pin</th><th style="width:41%">Funktion</th><th style="width:9%">Pin</th><th>Funktion</th></tr>
+    <tr><td>PB0</td><td>Kathode LED 11 – 15</td><td>PC4</td><td>Taster (Pull-up intern)</td></tr>
+    <tr><td>PB1</td><td>Kathode LED 6 – 10</td><td>PC5</td><td>RS485 Senden/Empfangen</td></tr>
+    <tr><td>PB2</td><td>Kathode LED 1 – 5</td><td>PC6</td><td>RESET</td></tr>
+    <tr><td>PB3</td><td>MOSI / Jumper</td><td>PD0</td><td>RXD (RS485)</td></tr>
+    <tr><td>PB4</td><td>MISO / Jumper</td><td>PD1</td><td>TXD (RS485)</td></tr>
+    <tr><td>PB5</td><td>SCK / Jumper</td><td>PD2</td><td>Anode LED 5, 10, 15</td></tr>
+    <tr><td>PB6, PB7</td><td>Resonator</td><td>PD3</td><td>Anode LED 4, 9, 14, 19</td></tr>
+    <tr><td>PC0</td><td>USB D−</td><td>PD4</td><td>Anode LED 3, 8, 13, 18</td></tr>
+    <tr><td>PC1</td><td>USB D+</td><td>PD5</td><td>Anode LED 2, 7, 12, 17</td></tr>
+    <tr><td>PC2</td><td>1-Wire Daten / ADC2</td><td>PD6</td><td>Anode LED 1, 6, 11, 16</td></tr>
+    <tr><td>PC3</td><td>1-Wire Versorgung</td><td>PD7</td><td>Kathode LED 16 – 19</td></tr>
+  </table>
+</section>
+
+<!-- ============================ FEHLERSUCHE ============================ -->
+<section>
+  <h2>11 Fehlersuche</h2>
+  <table>
+    <tr><th style="width:34%">Problem</th><th>Ursache und Abhilfe</th></tr>
+    <tr><td>Beim Lampentest bleibt eine LED dunkel</td><td>LED verpolt oder kalte Lötstelle. Bleibt eine ganze Zeile oder Spalte dunkel: Leiterbahn bzw. Anschluss am Controller prüfen.</td></tr>
+    <tr><td>Falsche Funktion startet</td><td>Augenzahl nach dem Lampentest mit der Jumpertabelle vergleichen. Jumper fest aufstecken; für Funktion 4 müssen beide Jumper stecken.</td></tr>
+    <tr><td>Temperatur stark daneben</td><td>Interner Sensor nicht kalibriert – Kalibrierung durchführen oder DS18B20 anschließen.</td></tr>
+    <tr><td>LED 1 und 10 leuchten</td><td>Externer Sensor antwortet nicht. Anschluss JP2 und Sensor prüfen.</td></tr>
+    <tr><td>Blaue LEDs blinken im Wechsel</td><td>Keine RS485-Verbindung: A/B vertauscht, GND fehlt, oder das andere Board ist nicht in Funktion 4.</td></tr>
+    <tr><td>avrdude: „not in sync“ / „timeout“</td><td>Falscher COM-Port, Platine nicht versorgt oder ein Jumper steckt noch auf JP1.</td></tr>
+    <tr><td>avrdude: „Expected signature …“</td><td>Falscher Controller eingestellt. Signatur 1E 94 0B = ATmega168P.</td></tr>
+    <tr><td>avrdude: „verification error“</td><td>Flash wurde nicht gelöscht – <span class="mono">upload_flags = -e</span> setzen.</td></tr>
+  </table>
+</section>
+
+<!-- ============================ OFFEN ============================ -->
+<section class="weiter">
+  <h2>12 Offene Punkte dieses Entwurfs</h2>
+  <div class="offen">
+    <ul>
+      <li>Die Funktionen 1 bis 4 sind noch nicht vollständig auf der Hardware getestet, insbesondere das
+      RS485-Spiel mit zwei Platinen.</li>
+      <li>Die blauen LEDs heißen in der Software LED 18 und 19, im bisherigen Entwurf war von LED 18 und 20 die
+      Rede. Mit dem Bestückungsdruck abgleichen.</li>
+      <li>Die Belegung des ISP-Steckers (Bild 2) folgt dem AVR-Standard und ist am Board noch zu prüfen.</li>
+      <li>Portbelegung: PC2 – „4,7 kΩ Widerstand geht auf Masse, in der Rev. 3.3 falsch?“ klären.</li>
+      <li>In der Stückliste sind R4 und R5 noch mit „berechnen“ eingetragen.</li>
+      <li>Fotos der Platine, Bestückungsplan und Lötanleitung ergänzen.</li>
+      <li>Spielregel „20 gewinnt“: festgelegt ist „ab 20 Punkten gewonnen“. Alternativ wäre „genau 20“ möglich.</li>
+    </ul>
+  </div>
+</section>
+
+</body>
+</html>

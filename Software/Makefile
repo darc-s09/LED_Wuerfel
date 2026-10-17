@@ -1,6 +1,6 @@
 # LED Wuerfel / Temperaturanzeige
 #
-#   make                      Firmware fuer ATmega168A bauen
+#   make                      Firmware fuer ATmega168P bauen
 #   make MCU=atmega88a        anderer Controller (ab 8 KB Flash, ATmega48 ist zu klein)
 #   make UART_DEBUG=1         mit Debug-Befehlen und -Ausgaben ueber RS485
 #   make flash                mit avrdude ueber USBasp programmieren
@@ -8,7 +8,7 @@
 # Mit Atmel Studio: Dateien thermo.c, led.c, spiel.c, rs485.c und 1wire.c
 # in das Projekt aufnehmen (uart.c entfaellt) und F_CPU=12000000UL definieren.
 
-MCU        ?= atmega168a
+MCU        ?= atmega168p
 F_CPU      ?= 12000000UL
 UART_DEBUG ?= 0
 PROGRAMMER ?= usbasp

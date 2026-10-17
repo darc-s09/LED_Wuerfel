@@ -1,7 +1,7 @@
 # LED_Wuerfel
 
 Bausatz DARC S09: LED-Temperaturanzeige und elektronischer Würfel mit
-ATmega168A (12 MHz), 19 LEDs im Multiplex, Taster, DS18B20-Anschluss (JP2)
+ATmega168P (12 MHz), 19 LEDs im Multiplex, Taster, DS18B20-Anschluss (JP2)
 und RS485-Schnittstelle (MAX481).
 
 ## Funktionen und Jumper
@@ -86,7 +86,7 @@ Terminalprogramm möglich:
 Im Ordner `Software`:
 
 ```
-make                      # ATmega168A, build/led_wuerfel.hex
+make                      # ATmega168P, build/led_wuerfel.hex
 make MCU=atmega88a        # passt auch in 8 KB
 make UART_DEBUG=1         # Debug-Befehle über RS485 ('>' Adresse Kommando Wert CRC)
 make flash                # avrdude mit USBasp

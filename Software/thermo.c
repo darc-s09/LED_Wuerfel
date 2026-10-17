@@ -16,7 +16,7 @@
   3. Zweispielermode "20 gewinnt" mit einem Wuerfel
   4. Zweispielermode "20 gewinnt" mit zwei Wuerfeln ueber RS485
 
-  fuer Atmega 48A/88A/168A, 12 MHz
+  fuer ATmega88A/88P/168A/168P, 12 MHz
 
   Zeitablauf:
   Timer 0  LED-Multiplexer (led.c)
