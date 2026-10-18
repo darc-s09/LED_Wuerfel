@@ -23,16 +23,18 @@
 #include <avr/pgmspace.h>
 #include <util/atomic.h>
 #include <util/crc16.h>
-#include <util/delay.h>
 
 #define BAUD            9600
 #define UBRR_WERT       ((F_CPU + 8UL * BAUD) / (16UL * BAUD) - 1)
 #define RX_GROESSE      32             // Zweierpotenz
 #define TX_GROESSE      64             // Zweierpotenz
 #define RAHMEN_MAX      8              // max. Datenbytes je Rahmen (ohne CRC)
+#define SENDE_PAUSE     3              // Ticks Ruhe nach dem letzten Empfang (20..30 ms),
+                                       // damit die Gegenstelle ihren Sender abschalten kann
 
 static volatile uint8_t rx_puffer[RX_GROESSE];
 static volatile uint8_t rx_schreib, rx_lese;
+static volatile uint16_t rx_zeit;      // Tick des zuletzt empfangenen Zeichens
 static volatile uint8_t tx_puffer[TX_GROESSE];
 static volatile uint8_t tx_schreib, tx_lese;
 
@@ -57,7 +59,20 @@ void rs485_putc(char c)
     while (naechster == tx_lese)
         ;
     if (!qbi(5, PORTC))
-        _delay_us(200);                 // Gegenstelle Zeit geben, ihren Sender abzuschalten
+    {
+        // Sender ist aus: erst senden, wenn der Bus lange genug ruhig war.
+        // USB-RS485-Adapter mit automatischer Umschaltung brauchen dafuer
+        // einige Millisekunden, sonst gehen die ersten Zeichen verloren.
+        uint16_t ruhe;
+        do
+        {
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+            {
+                ruhe = ticks - rx_zeit;
+            }
+        }
+        while (ruhe < SENDE_PAUSE);
+    }
     tx_puffer[tx_schreib] = c;
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
     {
@@ -225,6 +240,7 @@ ISR(USART_RX_vect)
     uint8_t c = UDR0;
     uint8_t naechster = (rx_schreib + 1) & (RX_GROESSE - 1);
 
+    rx_zeit = ticks;
     if (!(status & (_BV(FE0) | _BV(DOR0))) && naechster != rx_lese)
     {
         rx_puffer[rx_schreib] = c;
