@@ -117,7 +117,7 @@
     <li><span class="nr">9</span>Firmware bauen und aufspielen</li>
     <li><span class="nr">10</span>Technische Daten und Portbelegung</li>
     <li><span class="nr">11</span>Fehlersuche</li>
-    <li><span class="nr">12</span>Offene Punkte dieses Entwurfs</li>
+    <li><span class="nr">12</span>Bekannte Fehler und offene Punkte</li>
   </ul>
 
   <section class="weiter">
@@ -176,7 +176,7 @@
     <tr><td>12V+ / GND</td><td>Versorgungsspannung 12 V</td></tr>
     <tr><td>A / B</td><td>RS485-Bus. Bei zwei Platinen A mit A und B mit B verbinden, dazu GND.</td></tr>
     <tr><td>JP1 (AVR-ISP-6)</td><td>Programmieren über ISP; im Betrieb Steckplatz für die Funktions-Jumper</td></tr>
-    <tr><td>JP2</td><td>optionaler 1-Wire-Sensor DS18B20 oder DS1820 (Daten an PC2, Versorgung über PC3, 4,7 kΩ Pull-up)</td></tr>
+    <tr><td>JP2</td><td>optionaler 1-Wire-Sensor DS18B20 oder DS1820 (Daten an PC2, Versorgung über PC3, 4,7 kΩ Pull-up nach PC3 – bei Rev. 3.3 fälschlich nach GND, siehe Kapitel 12)</td></tr>
     <tr><td>USB (Micro)</td><td>D+/D− an PC1/PC0; von der aktuellen Firmware nicht genutzt</td></tr>
   </table>
 
@@ -267,6 +267,11 @@
     <li><b>Kein Sensor:</b> Der interne Temperatursensor des ATmega wird ausgewertet. Er ist ungenau und muss
     kalibriert werden (siehe unten).</li>
   </ul>
+  <div class="hinweis"><b>Platine Rev. 3.3:</b> Der 4,7-kΩ-Widerstand an PC2 liegt dort fälschlich an Masse statt
+  an PC3. Ein externer Sensor und das Kalibrier-Poti funktionieren deshalb erst nach einem Umbau (siehe
+  Kapitel 12). Ohne Umbau erkennt die Firmware den Zustand, meldet
+  <span class="mono">PC2 liegt auf GND (Pull-up Rev. 3.3?), kein externer Sensor</span> und nutzt den internen
+  Sensor mit dem gespeicherten Kalibrierwert.</div>
 
   <h3>Anzeige auf dem LED-Band</h3>
   <p>Es leuchtet immer genau eine LED, jede LED steht für 2 °C:</p>
@@ -524,7 +529,8 @@ make flash            mit avrdude programmieren</pre>
     <tr><td>Beim Lampentest bleibt eine LED dunkel</td><td>LED verpolt oder kalte Lötstelle. Bleibt eine ganze Zeile oder Spalte dunkel: Leiterbahn bzw. Anschluss am Controller prüfen.</td></tr>
     <tr><td>Falsche Funktion startet</td><td>Augenzahl nach dem Lampentest mit der Jumpertabelle vergleichen. Jumper fest aufstecken; für Funktion 4 müssen beide Jumper stecken.</td></tr>
     <tr><td>Temperatur stark daneben</td><td>Interner Sensor nicht kalibriert – Kalibrierung durchführen oder DS18B20 anschließen.</td></tr>
-    <tr><td>LED 1 und 10 leuchten</td><td>Externer Sensor antwortet nicht. Anschluss JP2 und Sensor prüfen.</td></tr>
+    <tr><td>LED 1 und 10 leuchten</td><td>Externer Sensor antwortet nicht. Anschluss JP2 und Sensor prüfen; bei Rev. 3.3 zuerst den Pull-up an PC2 umbauen.</td></tr>
+    <tr><td>DS18B20 wird nicht erkannt (Rev. 3.3)</td><td>4,7 kΩ an PC2 liegt an Masse statt an PC3 – Umbau siehe Kapitel 12.</td></tr>
     <tr><td>Blaue LEDs blinken im Wechsel</td><td>Keine RS485-Verbindung: A/B vertauscht, GND fehlt, oder das andere Board ist nicht in Funktion 4.</td></tr>
     <tr><td>avrdude: „not in sync“ / „timeout“</td><td>Falscher COM-Port, Platine nicht versorgt oder ein Jumper steckt noch auf JP1.</td></tr>
     <tr><td>avrdude: „Expected signature …“</td><td>Falscher Controller eingestellt. Signatur 1E 94 0B = ATmega168P.</td></tr>
@@ -534,15 +540,35 @@ make flash            mit avrdude programmieren</pre>
 
 <!-- ============================ OFFEN ============================ -->
 <section class="weiter">
-  <h2>12 Offene Punkte dieses Entwurfs</h2>
+  <h2>12 Bekannte Fehler und offene Punkte</h2>
+
+  <h3>Bekannter Fehler der Platine Rev. 3.3: Pull-up an PC2</h3>
+  <p>Der 4,7-kΩ-Widerstand an PC2 (1-Wire-Daten, JP2) ist in Rev. 3.3 an <b>Masse</b> angeschlossen. Der
+  1-Wire-Bus braucht aber einen Pull-up nach Plus. Folgen:</p>
+  <ul>
+    <li>Ein DS18B20 oder DS1820 an JP2 wird nicht erkannt.</li>
+    <li>Das Kalibrier-Poti an JP2 lässt sich nicht verwenden.</li>
+    <li>Die Temperaturanzeige arbeitet mit dem internen Sensor; die Firmware erkennt den Zustand und meldet ihn über RS485.</li>
+  </ul>
+  <p><b>Umbau auf vorhandenen Platinen:</b> Ein Ende des Widerstands von der Masseseite lösen und mit einem
+  kurzen Draht an PC3 (1-Wire-Versorgung) legen, sodass der Widerstand zwischen PC2 und PC3 liegt.</p>
+  <p><b>Nächste Revision:</b> Widerstand im Schaltplan zwischen PC2 und PC3 legen.</p>
+
+  <h3>Geklärt</h3>
+  <ul>
+    <li>Die blauen LEDs sind LED 18 (Spieler 1) und LED 19 (Spieler 2). „LED 20“ im alten Entwurf war ein Fehler.</li>
+    <li>Der ISP-Stecker JP1 entspricht der Standardbelegung (Bild 2).</li>
+    <li>Das RS485-Protokoll der Funktion 4 ist mit Docklight als Gegenstelle getestet (11 von 11 Prüfungen bestanden).</li>
+  </ul>
+
+  <h3>Noch offen</h3>
   <div class="offen">
     <ul>
-      <li>Die Funktionen 1 bis 4 sind noch nicht vollständig auf der Hardware getestet, insbesondere das
-      RS485-Spiel mit zwei Platinen.</li>
-      <li>Die blauen LEDs heißen in der Software LED 18 und 19, im bisherigen Entwurf war von LED 18 und 20 die
-      Rede. Mit dem Bestückungsdruck abgleichen.</li>
-      <li>Die Belegung des ISP-Steckers (Bild 2) folgt dem AVR-Standard und ist am Board noch zu prüfen.</li>
-      <li>Portbelegung: PC2 – „4,7 kΩ Widerstand geht auf Masse, in der Rev. 3.3 falsch?“ klären.</li>
+      <li>Funktion 4 mit zwei echten Platinen testen.</li>
+      <li>Externen Sensor DS18B20 nach dem Pull-up-Umbau testen.</li>
+      <li>Spannungsversorgung prüfen: Der Schaltplan Rev. 3.3 zeigt eine Micro-USB-Buchse mit Sicherung F1 und
+      ESD-Schutz, aber keinen Regler TPS54308. Die Angaben zu 12 V in Kapitel 2, 3 und 10 stammen vermutlich von
+      einer älteren Revision.</li>
       <li>In der Stückliste sind R4 und R5 noch mit „berechnen“ eingetragen.</li>
       <li>Fotos der Platine, Bestückungsplan und Lötanleitung ergänzen.</li>
       <li>Spielregel „20 gewinnt“: festgelegt ist „ab 20 Punkten gewonnen“. Alternativ wäre „genau 20“ möglich.</li>

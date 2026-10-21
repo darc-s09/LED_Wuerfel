@@ -265,7 +265,14 @@ static void temperatur_init(void)
     // zu weit Richtung GND, wird der Bootloader aktiviert.  Befindet
     // es sich nahe am Vcc-seitigen Anschlag, ist es nicht von einem
     // unbeschalteten JP2 (Pullup nach PC3) unterscheidbar.
-    if (adc2_lesen() < 240)
+    // Liegt PC2 auf GND (Rev. 3.3: 4,7k nach Masse statt nach PC3),
+    // ist weder Poti noch 1-Wire-Sensor moeglich: interner Sensor.
+    uint8_t adc2 = adc2_lesen();
+    if (adc2 < 16)
+    {
+        rs485_puts_P(PSTR("PC2 liegt auf GND (Pull-up Rev. 3.3?), kein externer Sensor\r\n"));
+    }
+    else if (adc2 < 240)
     {
         kalibrierung = true;
         rs485_puts_P(PSTR("Kalibriermodus aktiv\r\n"));
