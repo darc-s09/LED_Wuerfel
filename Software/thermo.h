@@ -10,7 +10,7 @@
 #define THERMO_H
 
 #ifndef F_CPU
-#   define F_CPU        12000000UL     // Keramikresonator 12 MHz
+#   define F_CPU        12000000UL     // Quarz 12 MHz
 #endif
 
 #ifndef UART_DEBUG                     // Kann auf Kommandozeile mit -DUART_DEBUG=1

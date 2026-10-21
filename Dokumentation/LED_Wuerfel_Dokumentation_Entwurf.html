@@ -116,6 +116,7 @@
     <li><span class="nr">8</span>RS485-Schnittstelle und Protokoll</li>
     <li><span class="nr">9</span>Firmware bauen und aufspielen</li>
     <li><span class="nr">10</span>Technische Daten und Portbelegung</li>
+    <li><span class="nr">10a</span>Stückliste (Rev. 3.3)</li>
     <li><span class="nr">11</span>Fehlersuche</li>
     <li><span class="nr">12</span>Bekannte Fehler und offene Punkte</li>
   </ul>
@@ -149,11 +150,11 @@
     <div>
       <h3>Baugruppen</h3>
       <ul>
-        <li><b>Mikrocontroller</b> ATmega168P mit 12-MHz-Keramikresonator</li>
+        <li><b>Mikrocontroller</b> ATmega168P mit 12-MHz-Quarz</li>
         <li><b>19 LEDs</b> im Multiplexbetrieb (4 Zeilen × 5 Spalten)</li>
         <li><b>Taster</b> zum Würfeln, Messen und Bestätigen</li>
         <li><b>RS485</b> mit MAX481, Halbduplex, Anschlüsse A und B</li>
-        <li><b>Spannungsregler</b> TPS54308: Versorgung 12 V, intern 5 V</li>
+        <li><b>Versorgung</b> 5 V über Micro-USB, mit Sicherung F1 und ESD-Schutz IP4220</li>
         <li><b>JP1</b> ISP-Stecker zum Programmieren und für die Funktions-Jumper</li>
         <li><b>JP2</b> Anschluss für einen 1-Wire-Temperatursensor</li>
       </ul>
@@ -173,11 +174,10 @@
   <h3>Anschlüsse</h3>
   <table>
     <tr><th style="width:22%">Anschluss</th><th>Bedeutung</th></tr>
-    <tr><td>12V+ / GND</td><td>Versorgungsspannung 12 V</td></tr>
-    <tr><td>A / B</td><td>RS485-Bus. Bei zwei Platinen A mit A und B mit B verbinden, dazu GND.</td></tr>
+    <tr><td>JP3 (Micro-USB)</td><td>Versorgung 5 V, z. B. aus einem USB-Netzteil oder vom PC. D+/D− liegen über R1/R2 (68 Ω) an PC1/PC0, R3 (1,5 kΩ) ist der USB-Pull-up – vorbereitet für einen USB-Bootloader, von der aktuellen Firmware nicht genutzt.</td></tr>
+    <tr><td>485A (+) / 485B (−)</td><td>RS485-Bus. Bei zwei Platinen A mit A und B mit B verbinden, dazu GND.</td></tr>
     <tr><td>JP1 (AVR-ISP-6)</td><td>Programmieren über ISP; im Betrieb Steckplatz für die Funktions-Jumper</td></tr>
     <tr><td>JP2</td><td>optionaler 1-Wire-Sensor DS18B20 oder DS1820 (Daten an PC2, Versorgung über PC3, 4,7 kΩ Pull-up nach PC3 – bei Rev. 3.3 fälschlich nach GND, siehe Kapitel 12)</td></tr>
-    <tr><td>USB (Micro)</td><td>D+/D− an PC1/PC0; von der aktuellen Firmware nicht genutzt</td></tr>
   </table>
 
   <h3>Die Augenbilder des Würfelfelds</h3>
@@ -249,7 +249,7 @@
   <h3>Ablauf beim Einschalten</h3>
   <ol>
     <li>Jumper für die gewünschte Funktion stecken.</li>
-    <li>12 V anlegen. Alle 19 LEDs leuchten eine halbe Sekunde (<b>Lampentest</b>). So lässt sich nach dem
+    <li>USB-Kabel anstecken (5 V). Alle 19 LEDs leuchten eine halbe Sekunde (<b>Lampentest</b>). So lässt sich nach dem
     Löten schnell prüfen, ob jede LED richtig herum eingebaut ist.</li>
     <li>Das Würfelfeld zeigt eine Sekunde lang die gewählte Funktion als Augenzahl (Spalte „Anzeige“).</li>
     <li>Die Funktion startet. Über RS485 wird eine Startmeldung ausgegeben, z. B.
@@ -475,7 +475,7 @@ make flash            mit avrdude programmieren</pre>
   <h3>Fuses</h3>
   <table>
     <tr><th style="width:18%">Fuse</th><th style="width:12%">Wert</th><th>Bedeutung</th></tr>
-    <tr><td>Low</td><td>0xFD</td><td>externer Resonator, kein Teiler durch 8 – Takt 12 MHz</td></tr>
+    <tr><td>Low</td><td>0xFD</td><td>externer Quarz (Low-Power-Oszillator, Bereich 3–8 MHz), kein Teiler durch 8 – Takt 12 MHz. Für 12 MHz sieht das Datenblatt den Bereich 8–16 MHz vor (0xFF), siehe Kapitel 12.</td></tr>
     <tr><td>High</td><td>0xDF</td><td>ISP aktiv; EESAVE nicht gesetzt (EEPROM wird beim Löschen mitgelöscht)</td></tr>
     <tr><td>Extended</td><td>0xF9</td><td>Start ab Adresse 0, kein Bootloader-Reset</td></tr>
   </table>
@@ -487,9 +487,9 @@ make flash            mit avrdude programmieren</pre>
   <div class="zwei">
     <table>
       <tr><th colspan="2">Technische Daten</th></tr>
-      <tr><td>Versorgung</td><td>12 V, intern 5 V (TPS54308)</td></tr>
+      <tr><td>Versorgung</td><td>5 V über Micro-USB</td></tr>
       <tr><td>Controller</td><td>ATmega168P, 16 KB Flash, 1 KB RAM</td></tr>
-      <tr><td>Takt</td><td>12 MHz Keramikresonator</td></tr>
+      <tr><td>Takt</td><td>12 MHz Quarz (HC18U-V)</td></tr>
       <tr><td>Firmware</td><td>ca. 5,1 KB Flash, 174 Byte RAM</td></tr>
       <tr><td>LEDs</td><td>19 Stück, Multiplex 4 × 5, 310 Hz Bildrate</td></tr>
       <tr><td>Schnittstelle</td><td>RS485, MAX481, 9600 Baud</td></tr>
@@ -513,12 +513,41 @@ make flash            mit avrdude programmieren</pre>
     <tr><td>PB3</td><td>MOSI / Jumper</td><td>PD0</td><td>RXD (RS485)</td></tr>
     <tr><td>PB4</td><td>MISO / Jumper</td><td>PD1</td><td>TXD (RS485)</td></tr>
     <tr><td>PB5</td><td>SCK / Jumper</td><td>PD2</td><td>Anode LED 5, 10, 15</td></tr>
-    <tr><td>PB6, PB7</td><td>Resonator</td><td>PD3</td><td>Anode LED 4, 9, 14, 19</td></tr>
+    <tr><td>PB6, PB7</td><td>Quarz 12 MHz</td><td>PD3</td><td>Anode LED 4, 9, 14, 19</td></tr>
     <tr><td>PC0</td><td>USB D−</td><td>PD4</td><td>Anode LED 3, 8, 13, 18</td></tr>
     <tr><td>PC1</td><td>USB D+</td><td>PD5</td><td>Anode LED 2, 7, 12, 17</td></tr>
     <tr><td>PC2</td><td>1-Wire Daten / ADC2</td><td>PD6</td><td>Anode LED 1, 6, 11, 16</td></tr>
     <tr><td>PC3</td><td>1-Wire Versorgung</td><td>PD7</td><td>Kathode LED 16 – 19</td></tr>
   </table>
+</section>
+
+<section>
+  <h2>10a Stückliste (Rev. 3.3)</h2>
+  <p>Exportiert aus <span class="mono">VER_3_3_LED_Thermo.sch</span> mit Eagle 7.7.0 am 21.10.2026,
+  gleiche Bauteile zusammengefasst. Insgesamt 44 Positionen.</p>
+  <table>
+    <tr><th style="width:7%">Anz.</th><th style="width:24%">Bauteile</th><th style="width:20%">Wert</th><th style="width:19%">Gehäuse</th><th>Bemerkung</th></tr>
+    <tr><td>1</td><td>IC1</td><td>ATmega168P-AU</td><td>TQFP32</td><td>Mikrocontroller (in der Eagle-Liste als „MEGA68-AU“)</td></tr>
+    <tr><td>1</td><td>IC2</td><td>MAX481CSA</td><td>SO-8</td><td>RS485-Transceiver</td></tr>
+    <tr><td>1</td><td>IC3</td><td>IP4220CZ6</td><td>SOT-457 (6-pol.)</td><td>ESD-Schutz USB</td></tr>
+    <tr><td>1</td><td>Q1</td><td>12 MHz</td><td>HC18U-V</td><td>Quarz</td></tr>
+    <tr><td>2</td><td>C1, C2</td><td>22 pF</td><td>0805</td><td>Lastkondensatoren Quarz</td></tr>
+    <tr><td>4</td><td>C7, C8, C9, C12</td><td>100 nF</td><td>0805</td><td>Abblockkondensatoren</td></tr>
+    <tr><td>2</td><td>R1, R2</td><td>68 Ω</td><td>0805</td><td>USB D+ / D−</td></tr>
+    <tr><td>1</td><td>R3</td><td>1,5 kΩ</td><td>0805</td><td>USB-Pull-up</td></tr>
+    <tr><td>4</td><td>R7, R8, R9, R10</td><td>390 Ω</td><td>0805</td><td>LED-Vorwiderstände</td></tr>
+    <tr><td>1</td><td>R11</td><td>4,7 kΩ</td><td>0805</td><td>1-Wire-Pull-up (Rev. 3.3: Fehler, siehe Kapitel 12)</td></tr>
+    <tr><td>1</td><td>F1</td><td>Sicherung</td><td>1206</td><td>USB-Versorgung</td></tr>
+    <tr><td>17</td><td>LED1 – LED17</td><td>LED 3 mm</td><td>THT</td><td>Band und Würfelfeld</td></tr>
+    <tr><td>2</td><td>LED18, LED19</td><td>LED 3 mm, blau</td><td>THT</td><td>Spieleranzeige</td></tr>
+    <tr><td>1</td><td>SW1</td><td>Omron B3FS-1002</td><td>SMD</td><td>Taster</td></tr>
+    <tr><td>1</td><td>JP1</td><td>Stiftleiste 2 × 3</td><td>2,54 mm</td><td>ISP-Stecker / Funktions-Jumper</td></tr>
+    <tr><td>1</td><td>JP2</td><td>Stiftleiste 1 × 3</td><td>2,54 mm</td><td>optional, 1-Wire-Sensor</td></tr>
+    <tr><td>1</td><td>JP3</td><td>Würth 614105150721</td><td>Micro-USB</td><td>Versorgung 5 V</td></tr>
+    <tr><td>2</td><td>485A, 485B</td><td>Lötpad</td><td>2,54 mm</td><td>RS485 A (+) und B (−)</td></tr>
+  </table>
+  <p>Dazu für den Betrieb: Jumper (2,54 mm), USB-Kabel mit Micro-USB-Stecker und 5-V-Netzteil, optional ein
+  DS18B20.</p>
 </section>
 
 <!-- ============================ FEHLERSUCHE ============================ -->
@@ -559,6 +588,8 @@ make flash            mit avrdude programmieren</pre>
     <li>Die blauen LEDs sind LED 18 (Spieler 1) und LED 19 (Spieler 2). „LED 20“ im alten Entwurf war ein Fehler.</li>
     <li>Der ISP-Stecker JP1 entspricht der Standardbelegung (Bild 2).</li>
     <li>Das RS485-Protokoll der Funktion 4 ist mit Docklight als Gegenstelle getestet (11 von 11 Prüfungen bestanden).</li>
+    <li>Die Platine Rev. 3.3 wird über Micro-USB mit 5 V versorgt; die früheren Angaben zu 12 V und TPS54308
+    stammten von einer älteren Revision. R4 und R5 gibt es in Rev. 3.3 nicht mehr.</li>
   </ul>
 
   <h3>Noch offen</h3>
@@ -566,10 +597,9 @@ make flash            mit avrdude programmieren</pre>
     <ul>
       <li>Funktion 4 mit zwei echten Platinen testen.</li>
       <li>Externen Sensor DS18B20 nach dem Pull-up-Umbau testen.</li>
-      <li>Spannungsversorgung prüfen: Der Schaltplan Rev. 3.3 zeigt eine Micro-USB-Buchse mit Sicherung F1 und
-      ESD-Schutz, aber keinen Regler TPS54308. Die Angaben zu 12 V in Kapitel 2, 3 und 10 stammen vermutlich von
-      einer älteren Revision.</li>
-      <li>In der Stückliste sind R4 und R5 noch mit „berechnen“ eingetragen.</li>
+      <li>Low-Fuse prüfen: 0xFD stellt den Oszillator auf 3–8 MHz ein, für den 12-MHz-Quarz wäre 0xFF
+      (8–16 MHz) vorgesehen. Die Platine läuft, hat aber weniger Reserve beim Anschwingen.</li>
+      <li>In der Stückliste ist IC1 als „MEGA68-AU“ eingetragen; verbaut wird ein ATmega168P-AU.</li>
       <li>Fotos der Platine, Bestückungsplan und Lötanleitung ergänzen.</li>
       <li>Spielregel „20 gewinnt“: festgelegt ist „ab 20 Punkten gewonnen“. Alternativ wäre „genau 20“ möglich.</li>
     </ul>
