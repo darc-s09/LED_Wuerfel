@@ -1,6 +1,6 @@
 # LED Wuerfel / Temperaturanzeige
 #
-#   make                      Firmware fuer ATmega168P bauen
+#   make                      Firmware fuer ATmega168P bauen (MCU=atmega328p fuer neue Platinen)
 #   make MCU=atmega88a        anderer Controller (ab 8 KB Flash, ATmega48 ist zu klein)
 #   make UART_DEBUG=1         mit Debug-Befehlen und -Ausgaben ueber RS485
 #   make flash                mit avrdude ueber USBasp programmieren
