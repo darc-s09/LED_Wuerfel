@@ -115,7 +115,7 @@
       <tr><td><b>Hardware</b></td><td>Platine Rev. 3.3, ATmega328P (erste Platine ATmega168P), 12 MHz</td></tr>
       <tr><td><b>Firmware</b></td><td>Version 1.0 (Branch <span class="mono">ki-opt</span>)</td></tr>
       <tr><td><b>Autoren</b></td><td>Uwe Liedtke, Jörg Wunsch</td></tr>
-      <tr><td><b>Stand</b></td><td>Oktober 2026 – Entwurf, noch nicht vollständig auf der Hardware geprüft</td></tr>
+      <tr><td><b>Stand</b></td><td>Oktober 2026 – Entwurf, Funktionen 1–4 auf der Hardware geprüft</td></tr>
     </table>
   </div>
 </div>
@@ -708,16 +708,17 @@ make flash            mit avrdude programmieren</pre>
   <p><b>Umbau auf vorhandenen Platinen:</b> Ein Ende des Widerstands von der Masseseite lösen und mit einem
   kurzen Draht an PC3 (1-Wire-Versorgung) legen, sodass der Widerstand zwischen PC2 und PC3 liegt.</p>
   <p><b>Nächste Revision:</b> Widerstand im Schaltplan zwischen PC2 und PC3 legen.</p>
-  <p><b>Geprüft:</b> Mit umgebautem Pull-up wird ein DS1820 an JP2 erkannt, und die Temperaturanzeige
+  <p><b>Geprüft:</b> Mit umgebautem Pull-up werden DS1820 und DS18B20 an JP2 erkannt, und die Temperaturanzeige
   arbeitet mit dem externen Sensor.</p>
 
   <h3>Geklärt</h3>
   <ul>
     <li>Die Spieler-LEDs sind LED 18 (rot, Spieler 1) und LED 19 (blau, Spieler 2). „LED 20“ im alten Entwurf war ein Fehler.</li>
     <li>LED-Farben: LED 1–2 blau, 3–5 grün, 6–8 orange, 9–10 rot, Würfelfeld 11–17 orange.</li>
-    <li>Externer Sensor DS1820 nach dem Pull-up-Umbau erfolgreich getestet.</li>
+    <li>Externe Sensoren DS1820 und DS18B20 nach dem Pull-up-Umbau erfolgreich getestet.</li>
     <li>Der ISP-Stecker JP1 entspricht der Standardbelegung (Bild 3).</li>
     <li>Das RS485-Protokoll der Funktion 4 ist mit Docklight als Gegenstelle getestet (11 von 11 Prüfungen bestanden).</li>
+    <li>Funktion 4 mit zwei echten Platinen (ATmega168P und ATmega328P) erfolgreich getestet.</li>
     <li>Die Platine Rev. 3.3 wird über Micro-USB mit 5 V versorgt; die früheren Angaben zu 12 V und TPS54308
     stammten von einer älteren Revision. R4 und R5 gibt es in Rev. 3.3 nicht mehr.</li>
   </ul>
@@ -725,8 +726,6 @@ make flash            mit avrdude programmieren</pre>
   <h3>Noch offen</h3>
   <div class="offen">
     <ul>
-      <li>Funktion 4 mit zwei echten Platinen testen.</li>
-      <li>Sensor DS18B20 testen (der DS1820 ist geprüft, die Firmware unterstützt beide).</li>
       <li>Low-Fuse prüfen: 0xFD stellt den Oszillator auf 3–8 MHz ein, für den 12-MHz-Quarz wäre 0xFF
       (8–16 MHz) vorgesehen. Die Platine läuft, hat aber weniger Reserve beim Anschwingen.</li>
       <li>In der Stückliste ist IC1 als „MEGA68-AU“ eingetragen; verbaut wird ein ATmega328P-AU (erste Platine ATmega168P-AU).</li>
